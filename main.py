@@ -3,6 +3,7 @@ import json
 import re
 import subprocess
 import requests
+import yt_dlp
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
@@ -64,6 +65,20 @@ def normalize_audio(input_file, tmp_file, measured):
     )
     cmd = ["ffmpeg", "-i", input_file, "-af", filter_settings, tmp_file]
     subprocess.run(cmd)
+
+def get_youtube_link(search: str, max_results=1):
+    ydl_opts = {
+        'quiet': True,
+        'skip_download': True,   # we only want the URL, not the file
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        search_query = f"ytsearch{max_results}:{search}"
+        info = ydl.extract_info(search_query, download=False)
+        
+        if 'entries' in info and len(info['entries']) > 0:
+            return info['entries'][0]['webpage_url']  # first result
+        else:
+            return None
 
 def get_spotify_track_url(song_artists):
     query = song_artists
@@ -138,14 +153,18 @@ if __name__ == "__main__":
     else:
         if not file_name:
             file_name = get_spotify_name_artits(spotify_url)
-            print(f'file name is : "{file_name}"')
+            print(f'auto-generated file name is : "{file_name}"')
         if not spotify_url:
             spotify_url = get_spotify_track_url(file_name)
-            print(f'spotify url is : "{spotify_url}"')
+            print(f'auto-generated spotify url is : "{spotify_url}"')
             
     # Correct File Name
     formated_name = sanitize_filename(file_name)
     final_file = f"files/{formated_name}.flac"
+    if not youtube_url:
+        max_results = 1
+        youtube_url = get_youtube_link(formated_name, max_results)
+        print(f'auto-generated youtube url is : "{youtube_url}"')
 
 
     # Download Audio
