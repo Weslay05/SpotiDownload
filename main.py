@@ -2,6 +2,7 @@ import logging
 import os
 import json
 import re
+import argparse
 import subprocess
 import requests
 import yt_dlp
@@ -183,17 +184,31 @@ def embed_metadata(wav_file, output_file, metadata):
     logging.debug(f'embedding metadata done')
 
 if __name__ == "__main__":
+    # Argument Parser
+    parser = argparse.ArgumentParser(description="Spotify ↔ YouTube helper")
+    parser.add_argument("--file_name", default="", help="Optional file name")
+    parser.add_argument("--spotify_url", default="", help="Spotify track URL")
+    parser.add_argument("--youtube_url", default="", help="YouTube video URL")
+    args = parser.parse_args()
+    
     # Main Variables
-    file_name = "song - artists"
-    spotify_url = "https://open.spotify.com/track/abcdefghi1234567"
-    youtube_url = "https://music.youtube.com/watch?v=abcdefghi1234567"
+    logging.info(f'Starting to download a new Track with given data')
+    if not args.file_name and not args.spotify_url:
+        logging.info('Using in-script values')
+        file_name = "song - artists"
+        spotify_url = "https://open.spotify.com/track/abcdefghi1234567"
+        youtube_url = "https://music.youtube.com/watch?v=abcdefghi1234567"
+    else:
+        logging.info('Using given Arguments')
+        file_name = args.file_name
+        spotify_url = args.spotify_url
+        youtube_url = args.youtube_url
     
     # Secondary Variables
     tolerance_sec = 1
     input_file = "files/tmp_downloaded.webm"
     tmp_file = "files/tmp_normalized.wav"
     # Look if something is missing
-    logging.info(f'Starting to download a new Track with given data')
     if not file_name and not spotify_url :
         print('No Song name or Spotify URL')
     else:
