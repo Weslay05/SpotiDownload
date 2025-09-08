@@ -89,11 +89,22 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
+            'format': 'bestaudio',  # Ensure audio format for search
+            'noplaylist': True,     # Avoid playlists
+            'default_search': query_type,  # Use ytsearch or ytmusicsearch
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             search_query = f"{query_type}{max_results}:{search}"
             info = ydl.extract_info(search_query, download=False)
             return info.get("entries", []) if info else []
+            try:
+                # Properly format the search query
+                search_query = f"{search}"
+                info = ydl.extract_info(f"{query_type}{max_results}:{search_query}", download=False)
+                return info.get("entries", []) if info else []
+            except Exception as e:
+                logging.error(f"Error in {query_type}: {str(e)}")
+                return []
     
     target_seconds = length_ms // 1000
 
@@ -106,7 +117,6 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
     #         return entry["webpage_url"]  # good match
      
     #  --- 2. Fallback to YouTube ---
-    # logging.warning(f'Couldnt find ({search}) in ytmusic search trying normal youtube next')
     for entry in do_search("ytsearch"):
         if entry.get("duration") is None:
             continue
@@ -114,14 +124,13 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
         if abs(yt_duration - target_seconds) <= tolerance:
             logging.debug(f'returning good youtube url')
             return entry["webpage_url"]
+    logging.warning(f"ytsearch failed, falling back to first best result for {search}")
     
     # --- 3. As a last resort, return the first YouTube result ---
-    logging.error(f'Couldnt find ({search}) trying first best search result')
     youtube_entries = do_search("ytsearch")
     if youtube_entries:
         logging.warning(f'returning fallback youtube url')
         return youtube_entries[0]["webpage_url"]
-    
     logging.critical(f'no yt url found')
     return None
 
