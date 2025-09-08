@@ -143,7 +143,6 @@ if __name__ == "__main__":
             spotify_url = get_spotify_track_url(file_name)
             print(f'spotify url is : "{spotify_url}"')
             
-            
     # Correct File Name
     formated_name = sanitize_filename(file_name)
     final_file = f"files/{formated_name}.flac"
