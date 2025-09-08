@@ -94,13 +94,8 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
             'default_search': query_type,  # Use ytsearch or ytmusicsearch
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            search_query = f"{query_type}{max_results}:{search}"
-            info = ydl.extract_info(search_query, download=False)
-            return info.get("entries", []) if info else []
             try:
-                # Properly format the search query
-                search_query = f"{search}"
-                info = ydl.extract_info(f"{query_type}{max_results}:{search_query}", download=False)
+                info = ydl.extract_info(f"{query_type}{max_results}:{search}", download=False)
                 return info.get("entries", []) if info else []
             except Exception as e:
                 logging.error(f"Error in {query_type}: {str(e)}")
@@ -108,13 +103,14 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
     
     target_seconds = length_ms // 1000
 
-    # # --- 1. Try YouTube Music ---
-    # for entry in do_search("ytsearch"):
-    #     if entry.get("duration") is None:
-    #         continue
-    #     yt_duration = entry["duration"]
-    #     if abs(yt_duration - target_seconds) <= tolerance:
-    #         return entry["webpage_url"]  # good match
+    # --- 1. Try YouTube Music ---
+    for entry in do_search("ytmusicsearch"):
+        if entry.get("duration") is None:
+            continue
+        yt_duration = entry["duration"]
+        if abs(yt_duration - target_seconds) <= tolerance:
+            return entry["webpage_url"]  # good match
+    logging.warning(f"YouTube Music failed, falling back to Youtube result for {search}")
      
     #  --- 2. Fallback to YouTube ---
     for entry in do_search("ytsearch"):
@@ -124,13 +120,13 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
         if abs(yt_duration - target_seconds) <= tolerance:
             logging.debug(f'returning good youtube url')
             return entry["webpage_url"]
-    logging.warning(f"ytsearch failed, falling back to first best result for {search}")
+    logging.warning(f"Youtube failed, falling back to first best result for {search}")
     
     # --- 3. As a last resort, return the first YouTube result ---
     youtube_entries = do_search("ytsearch")
     if youtube_entries:
-        logging.warning(f'returning fallback youtube url')
         return youtube_entries[0]["webpage_url"]
+    
     logging.critical(f'no yt url found')
     return None
 
@@ -237,7 +233,7 @@ if __name__ == "__main__":
     final_file = f"files/{formatted_name}.flac"
     if not youtube_url:
         youtube_url = get_youtube_link(formatted_name, spotify_url, tolerance_sec, max_results=1)
-        logging.info(f'found no youtube url, generated one is ({youtube_url})')
+        logging.info(f'no youtube url given, generated one is ({youtube_url})')
         print(f'auto-generated youtube url is : "{youtube_url}"')
 
 
@@ -261,4 +257,4 @@ if __name__ == "__main__":
     logging.debug(f'removing temp files')
 
     print(f"✅ Done! Final file saved as {final_file}")
-    logging.info(f"Done! Final file saved as {final_file}\n")
+    logging.info(f"Done! Final file saved as ({final_file})\n")
