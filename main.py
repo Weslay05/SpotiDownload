@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import re
@@ -10,6 +11,13 @@ from spotipy.oauth2 import SpotifyClientCredentials
 # Spotify API Key
 CLIENT_ID = "client-id"
 CLIENT_SECRET = "client-secret"
+
+# Configure logging
+logging.basicConfig(
+    filename="spotify_youtube.log",     # log file name
+    level=logging.INFO,                 # log level: DEBUG, INFO, WARNING, ERROR
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 sp = spotipy.Spotify(auth_manager=auth_manager)
@@ -35,11 +43,13 @@ def sanitize_filename(song_artists):
     if len(artists) > max_length_artists:
         artists = artists[:max_length_artists].rstrip()
     
+    logging.debug(f'{song_name} - {artists}')
     return f'{song_name} - {artists}'
 
-def download_audio(file_name, yourube_url):
+def download_audio(file_name, youtube_url):
     cmd = f"yt-dlp -f 251 {youtube_url} -o {file_name}"
     subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+    logging.debug(f"finished downloading ({file_name})")
 
 def analyze_audio(input_file):
     cmd = [
@@ -51,6 +61,7 @@ def analyze_audio(input_file):
     output = result.stderr
     json_start = output.find("{")
     json_end = output.rfind("}") + 1
+    logging.debug(f'Analysed audio and return loudnorm input values')
     return json.loads(output[json_start:json_end])
 
 def normalize_audio(input_file, tmp_file, measured):
@@ -65,20 +76,51 @@ def normalize_audio(input_file, tmp_file, measured):
     )
     cmd = ["ffmpeg", "-i", input_file, "-af", filter_settings, tmp_file]
     subprocess.run(cmd)
+    logging.debug(f'Applying Norm')
 
-def get_youtube_link(search: str, max_results=1):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,   # we only want the URL, not the file
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        search_query = f"ytsearch{max_results}:{search}"
-        info = ydl.extract_info(search_query, download=False)
-        
-        if 'entries' in info and len(info['entries']) > 0:
-            return info['entries'][0]['webpage_url']  # first result
-        else:
-            return None
+def get_youtube_link(search: str, track_url, tolerance, max_results=1):
+    track = sp.track(track_url)
+    length_ms = track["duration_ms"]
+    
+    def do_search(query_type):
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            search_query = f"{query_type}{max_results}:{search}"
+            info = ydl.extract_info(search_query, download=False)
+            return info.get("entries", []) if info else []
+    
+    target_seconds = length_ms // 1000
+
+    # # --- 1. Try YouTube Music ---
+    # for entry in do_search("ytsearch"):
+    #     if entry.get("duration") is None:
+    #         continue
+    #     yt_duration = entry["duration"]
+    #     if abs(yt_duration - target_seconds) <= tolerance:
+    #         return entry["webpage_url"]  # good match
+     
+    #  --- 2. Fallback to YouTube ---
+    # logging.warning(f'Couldnt find ({search}) in ytmusic search trying normal youtube next')
+    for entry in do_search("ytsearch"):
+        if entry.get("duration") is None:
+            continue
+        yt_duration = entry["duration"]
+        if abs(yt_duration - target_seconds) <= tolerance:
+            logging.debug(f'returning good youtube url')
+            return entry["webpage_url"]
+    
+    # --- 3. As a last resort, return the first YouTube result ---
+    logging.error(f'Couldnt find ({search}) trying first best search result')
+    youtube_entries = do_search("ytsearch")
+    if youtube_entries:
+        logging.warning(f'returning fallback youtube url')
+        return youtube_entries[0]["webpage_url"]
+    
+    logging.critical(f'no yt url found')
+    return None
 
 def get_spotify_track_url(song_artists):
     query = song_artists
@@ -88,6 +130,7 @@ def get_spotify_track_url(song_artists):
         track = items[0]
         return track['external_urls']['spotify']  # URL of the track
     else:
+        logging.warning(f'could not get spotify track url')
         return None
     
 def get_spotify_name_artits(spotify_url):
@@ -96,10 +139,7 @@ def get_spotify_name_artits(spotify_url):
     artists = ", ".join([a['name'] for a in track['artists']])  # Artist(s)
     return f"{name} - {artists}"
 
-def fetch_metadata(track_url, client_id, client_secret):
-    sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-        client_id=client_id, client_secret=client_secret
-    ))
+def fetch_metadata(track_url):
     track = sp.track(track_url)
     
     # Get artist details
@@ -114,12 +154,14 @@ def fetch_metadata(track_url, client_id, client_secret):
         "cover_url": track["album"]["images"][0]["url"],
         "genres": artist_data.get("genres", [])
     }
+    logging.debug(f'return metadata')
     return metadata
 
 def embed_metadata(wav_file, output_file, metadata):
     cover_data = requests.get(metadata["cover_url"]).content
     with open("files/tmp_cover_data.jpg", "wb") as f:
         f.write(cover_data)
+        logging.debug(f'wrote cover.jpg')
         
     genre_str = ", ".join(metadata["genres"])
     
@@ -136,7 +178,9 @@ def embed_metadata(wav_file, output_file, metadata):
         "-disposition:v", "attached_pic",
         output_file
     ]
+    logging.debug(f'embedding metadata')
     subprocess.run(cmd)
+    logging.debug(f'embedding metadata done')
 
 if __name__ == "__main__":
     # Main Variables
@@ -145,25 +189,29 @@ if __name__ == "__main__":
     youtube_url = "https://music.youtube.com/watch?v=abcdefghi1234567"
     
     # Secondary Variables
+    tolerance_sec = 1
     input_file = "files/tmp_downloaded.webm"
     tmp_file = "files/tmp_normalized.wav"
     # Look if something is missing
+    logging.info(f'Starting to download a new Track with given data')
     if not file_name and not spotify_url :
         print('No Song name or Spotify URL')
     else:
         if not file_name:
             file_name = get_spotify_name_artits(spotify_url)
+            logging.info(f'found no file name, generated one is ({file_name})')
             print(f'auto-generated file name is : "{file_name}"')
         if not spotify_url:
             spotify_url = get_spotify_track_url(file_name)
+            logging.info(f'found no spotify url, generated one is ({spotify_url})')
             print(f'auto-generated spotify url is : "{spotify_url}"')
             
     # Correct File Name
-    formated_name = sanitize_filename(file_name)
-    final_file = f"files/{formated_name}.flac"
+    formatted_name = sanitize_filename(file_name)
+    final_file = f"files/{formatted_name}.flac"
     if not youtube_url:
-        max_results = 1
-        youtube_url = get_youtube_link(formated_name, max_results)
+        youtube_url = get_youtube_link(formatted_name, spotify_url, tolerance_sec, max_results=1)
+        logging.info(f'found no youtube url, generated one is ({youtube_url})')
         print(f'auto-generated youtube url is : "{youtube_url}"')
 
 
@@ -176,7 +224,7 @@ if __name__ == "__main__":
     normalize_audio(input_file, tmp_file, measured)
     
     # Get Metadata
-    metadata = fetch_metadata(spotify_url, CLIENT_ID, CLIENT_SECRET)
+    metadata = fetch_metadata(spotify_url)
     # Apply Metadata
     embed_metadata(tmp_file, final_file, metadata)
     
@@ -184,5 +232,7 @@ if __name__ == "__main__":
     os.remove(tmp_file)
     os.remove(input_file)
     os.remove("files/tmp_cover_data.jpg")
+    logging.debug(f'removing temp files')
 
     print(f"✅ Done! Final file saved as {final_file}")
+    logging.info(f"Done! Final file saved as {final_file}\n")
