@@ -49,10 +49,18 @@ def sanitize_filename(song_artists):
     logging.debug(f'{song_name} - {artists}')
     return f'{song_name} - {artists}'
 
-def download_audio(file_name, youtube_url):
-    cmd = f"yt-dlp -f 251 {youtube_url} -o {file_name}"
-    subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
-    logging.debug(f"finished downloading ({file_name})")
+def download_audio(file, url):
+    """Download audio from YouTube video URL."""
+    ydl_opts = {
+        'format': 'bestaudio',
+        'outtmpl': file,
+        'noplaylist': True,
+        'quiet': False,  # Show progress during download
+    }   
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+        logging.debug(f'Downloaded {url}')
 
 def analyze_audio(input_file):
     cmd = [
@@ -89,7 +97,6 @@ def get_youtube_link(search: str, track_url, tolerance, max_results=1):
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
-            'format': 'bestaudio',  # Ensure audio format for search
             'noplaylist': True,     # Avoid playlists
             'default_search': query_type,  # Use ytsearch or ytmusicsearch
         }
@@ -213,7 +220,7 @@ if __name__ == "__main__":
     
     # Secondary Variables
     tolerance_sec = 1
-    input_file = "files/tmp_downloaded.webm"
+    input_file = "files/tmp_downloaded.wav"
     tmp_file = "files/tmp_normalized.wav"
     # Look if something is missing
     if not file_name and not spotify_url :
