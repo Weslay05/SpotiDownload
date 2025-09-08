@@ -1,8 +1,44 @@
+import os
 import json
+import re
 import subprocess
 import requests
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+
+# Spotify API Key
+CLIENT_ID = "client-id"
+CLIENT_SECRET = "client-secret"
+
+auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+sp = spotipy.Spotify(auth_manager=auth_manager)
+
+def sanitize_filename(song_artists):
+    # Split song and artist
+    if ' - ' in song_artists:
+        song_name, artists = song_artists.split(' - ', 1)
+    else:
+        # If no ' - ', treat the whole string as song name
+        song_name = song_artists
+        artists = "Unknown Artist"
+        
+    # Remove invalid characters
+    song_name = re.sub(r'[<>:"/\\|?*]', '', song_name)
+    artists = re.sub(r'[<>:"/\\|?*]', '', artists)
+    
+    # Optionally trim to a maximum length
+    max_length_artists = 100
+    max_length_song = 50
+    if len(song_name) > max_length_song:
+        song_name = song_name[:max_length_song].rstrip()
+    if len(artists) > max_length_artists:
+        artists = artists[:max_length_artists].rstrip()
+    
+    return f'{song_name} - {artists}'
+
+def download_audio(file_name, yourube_url):
+    cmd = f"yt-dlp -f 251 {youtube_url} -o {file_name}"
+    subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
 
 def analyze_audio(input_file):
     cmd = [
@@ -29,6 +65,22 @@ def normalize_audio(input_file, tmp_file, measured):
     cmd = ["ffmpeg", "-i", input_file, "-af", filter_settings, tmp_file]
     subprocess.run(cmd)
 
+def get_spotify_track_url(song_artists):
+    query = song_artists
+    results = sp.search(q=query, type='track', limit=1)
+    items = results['tracks']['items']
+    if items:
+        track = items[0]
+        return track['external_urls']['spotify']  # URL of the track
+    else:
+        return None
+    
+def get_spotify_name_artits(spotify_url):
+    track = sp.track(spotify_url)
+    name = track['name']          # Track name
+    artists = ", ".join([a['name'] for a in track['artists']])  # Artist(s)
+    return f"{name} - {artists}"
+
 def fetch_metadata(track_url, client_id, client_secret):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
         client_id=client_id, client_secret=client_secret
@@ -51,13 +103,13 @@ def fetch_metadata(track_url, client_id, client_secret):
 
 def embed_metadata(wav_file, output_file, metadata):
     cover_data = requests.get(metadata["cover_url"]).content
-    with open("files/cover_data.jpg", "wb") as f:
+    with open("files/tmp_cover_data.jpg", "wb") as f:
         f.write(cover_data)
         
     genre_str = ", ".join(metadata["genres"])
     
     cmd = [
-        "ffmpeg", "-i", wav_file, "-i", "files/cover_data.jpg",
+        "ffmpeg", "-i", wav_file, "-i", "files/tmp_cover_data.jpg",
         "-map", "0", "-map", "1",
         #"-acodec", "flac",
         #"-compression_level", "8",
@@ -73,22 +125,46 @@ def embed_metadata(wav_file, output_file, metadata):
 
 if __name__ == "__main__":
     # Main Variables
-    input_file = "files/someaudio.abc"
-    spotify_url = "https://open.spotify.com/track/abcdef1234567"
-    final_file = "files/output.flac"
-    # Secondary Variables
-    tmp_file = "files/tmp_normalized.wav"
-
-    # Spotify API Key
-    CLIENT_ID = "CLIENT_ID"
-    CLIENT_SECRET = "CLIENT_SECRET"
-
-    measured = analyze_audio(input_file)
+    file_name = "song - artists"
+    spotify_url = "https://open.spotify.com/track/abcdefghi1234567"
+    youtube_url = "https://music.youtube.com/watch?v=abcdefghi1234567"
     
+    # Secondary Variables
+    input_file = "files/tmp_downloaded.webm"
+    tmp_file = "files/tmp_normalized.wav"
+    # Look if something is missing
+    if not file_name and not spotify_url :
+        print('No Song name or Spotify URL')
+    else:
+        if not file_name:
+            file_name = get_spotify_name_artits(spotify_url)
+            print(f'file name is : "{file_name}"')
+        if not spotify_url:
+            spotify_url = get_spotify_track_url(file_name)
+            print(f'spotify url is : "{spotify_url}"')
+            
+            
+    # Correct File Name
+    formated_name = sanitize_filename(file_name)
+    final_file = f"files/{formated_name}.flac"
+
+
+    # Download Audio
+    download_audio(input_file, youtube_url)
+
+    # Analyse Audio
+    measured = analyze_audio(input_file)
+    # Normalize Audio
     normalize_audio(input_file, tmp_file, measured)
-
+    
+    # Get Metadata
     metadata = fetch_metadata(spotify_url, CLIENT_ID, CLIENT_SECRET)
-
+    # Apply Metadata
     embed_metadata(tmp_file, final_file, metadata)
+    
+    # Delete Temp Files
+    os.remove(tmp_file)
+    os.remove(input_file)
+    os.remove("files/tmp_cover_data.jpg")
 
     print(f"✅ Done! Final file saved as {final_file}")
