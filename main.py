@@ -16,6 +16,8 @@ CLIENT_SECRET = "client-secret"
 # Configure logging
 logging.basicConfig(
     filename="spotify_youtube.log",     # log file name
+    filemode="a",
+    encoding="utf-8",
     level=logging.INFO,                 # log level: DEBUG, INFO, WARNING, ERROR
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
