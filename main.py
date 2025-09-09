@@ -4,7 +4,7 @@ import json
 import re
 import argparse
 import subprocess
-from pathlib import Path
+import sys
 import requests
 import yt_dlp
 import spotipy
@@ -25,11 +25,6 @@ logging.basicConfig(
 
 auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 sp = spotipy.Spotify(auth_manager=auth_manager)
-
-def check_file(file_path: str):
-    path = Path(file_path)
-    if path.exists():
-        raise FileExistsError(f"File already exists: {path}")
 
 def sanitize_filename(song_artists):
     # Split song and artist
@@ -244,11 +239,10 @@ if __name__ == "__main__":
     # Correct File Name
     formatted_name = sanitize_filename(file_name)
     final_file = f"files/{formatted_name}.flac"
-    try:
-        check_file(final_file)
-    except FileExistsError as e:
-        logging.info(f'File ({final_file}) already exists raising error with {e}')
-        print(e)
+    if os.path.exists(final_file):
+        print("file already exists")
+        logging.info("file already exists")
+        sys.exit(0)
     if not youtube_url:
         youtube_url = get_youtube_link(formatted_name, spotify_url, tolerance_sec, max_results=1)
         logging.info(f'no youtube url given, generated one is ({youtube_url})')
