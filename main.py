@@ -4,6 +4,7 @@ import json
 import re
 import argparse
 import subprocess
+import sys
 import requests
 import yt_dlp
 import spotipy
@@ -238,6 +239,10 @@ if __name__ == "__main__":
     # Correct File Name
     formatted_name = sanitize_filename(file_name)
     final_file = f"files/{formatted_name}.flac"
+    if os.path.exists(final_file):
+        print("file already exists")
+        logging.info("file already exists")
+        sys.exit(0)
     if not youtube_url:
         youtube_url = get_youtube_link(formatted_name, spotify_url, tolerance_sec, max_results=1)
         logging.info(f'no youtube url given, generated one is ({youtube_url})')
