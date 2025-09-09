@@ -182,7 +182,10 @@ def embed_metadata(wav_file, output_file, metadata):
     genre_str = ", ".join(metadata["genres"])
     
     cmd = [
-        "ffmpeg", "-i", wav_file, "-i", "files/tmp_cover_data.jpg",
+        "ffmpeg", 
+        "-n", # always not overwrite
+        "-i", wav_file, # input file
+        "-i", "files/tmp_cover_data.jpg", #cover
         "-map", "0", "-map", "1",
         #"-acodec", "flac",
         #"-compression_level", "8",
@@ -241,8 +244,7 @@ if __name__ == "__main__":
     final_file = f"files/{formatted_name}.flac"
     if os.path.exists(final_file):
         print("file already exists")
-        logging.info("file already exists")
-        sys.exit(0)
+        logging.info(f'File ({final_file}) already exists, not ovewriting it but program will go on because why not')
     if not youtube_url:
         youtube_url = get_youtube_link(formatted_name, spotify_url, tolerance_sec, max_results=1)
         logging.info(f'no youtube url given, generated one is ({youtube_url})')
