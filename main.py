@@ -247,7 +247,7 @@ if __name__ == "__main__":
     try:
         check_file(final_file)
     except FileExistsError as e:
-        logging.info(f'File ({final_file}) already exists raising error with {e}\n')
+        logging.info(f'File ({final_file}) already exists raising error with {e}')
         print(e)
     if not youtube_url:
         youtube_url = get_youtube_link(formatted_name, spotify_url, tolerance_sec, max_results=1)
