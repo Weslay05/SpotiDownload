@@ -29,18 +29,16 @@ if __name__ == "__main__":
     # Check if everything is there
     if not args.csv:
         print("Non existing csv file path")
-        return 1
     if not args.music:
         print("Non existing music file path")
-        return 1
     
     # Set Args
     if platform.system() == 'Windows':
         csv_file = fr"{args.csv}"
-        music_dir = r"{args.music}"  # Search for Songs in ...
+        music_dir = fr"{args.music}"  # Search for Songs in ...
     elif platform.system() == 'Linux':
         csv_file = f"{args.csv}"
-        music_dir = "{args.music}"  # Search for Songs in ...    
+        music_dir = f"{args.music}"  # Search for Songs in ...
     print("Using : ", csv_file)
     print("Searching for Music in : ", music_dir)
     
