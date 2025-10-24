@@ -10,6 +10,7 @@ __pycache__/
 assets/*
 output/*
 conda-windows/
+conda-debian/
 .Python
 build/
 develop-eggs/
