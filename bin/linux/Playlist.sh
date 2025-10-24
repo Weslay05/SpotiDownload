@@ -9,4 +9,20 @@ echo ""
 echo ""
 echo ""
 
-python playlist.py
+cmd="python playlist.py"
+
+read -p "Enter CSV File Path : " youtube_url
+[ -n "$csv" ] && cmd="$cmd --csv \"$csv\"" # Add Command
+
+read -p "Enter Music Search Dir (Optional): " Music Search Dir
+[ -n "$Music Search Dir" ] && cmd="$cmd --music \"$Music Search Dir\"" # Add Command
+
+# Command
+echo ""
+echo "Run : $cmd"
+echo ""
+
+eval $cmd
+
+echo ""
+read -p "Press Any Key to exit ..."
