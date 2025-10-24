@@ -251,26 +251,26 @@ def embed_metadata(wav_file, output_file, cover_path, data):
 if __name__ == "__main__":
     # Argument Parser
     parser = argparse.ArgumentParser(description="Spotify ↔ YouTube helper")
-    parser.add_argument("--file_name", default="", help="Optional file name")
-    parser.add_argument("--spotify_url", default="", help="Spotify track URL")
-    parser.add_argument("--youtube_url", default="", help="YouTube video URL")
+    parser.add_argument("--song", default="", help="Search for ...")
+    parser.add_argument("--spotify", default="", help="Spotify track URL")
+    parser.add_argument("--youtube", default="", help="YouTube video URL")
     args = parser.parse_args()
     
     
     # Main Variables
     logging.info("Starting to download a new Track with given data")
-    if not args.file_name and not args.spotify_url:
+    if not args.song and not args.spotify:
         logging.info('Using in-script values')
-        file_name = "song - artists"
-        spotify_url = "https://open.spotify.com/track/abcdefghi1234567"
-        youtube_url = "https://music.youtube.com/watch?v=abcdefghi1234567"
+        song = ""
+        spotify = ""
+        youtube = ""
     else:
         logging.info('Using given Arguments')
         file_name = args.file_name
         spotify_url = args.spotify_url
         youtube_url = args.youtube_url
     # Secondary Variables
-    tolerance_sec = 1
+    tolerance_sec = 2
     max_results_ytsearch = 10
     input_file = "output/tmp_downloaded.wav"
     tmp_file = "output/tmp_normalized.wav"
@@ -278,17 +278,21 @@ if __name__ == "__main__":
     
     
     # Look if something is missing
-    if not file_name and not spotify_url :
+    if not song and not spotify :
         print('No Song name or Spotify URL')
     else:
-        if not file_name:
-            file_name = get_spotify_name_artits(spotify_url)
-            logging.info("found no file name, generated one is (%s)", file_name)
+        if not song:
+            file_name = get_spotify_name_artits(spotify)
+            logging.info("No Song name given, generated one is (%s)", file_name)
             print(f'auto-generated file name is : "{file_name}"')
-        if not spotify_url:
-            spotify_url = get_spotify_track_url(file_name)
-            logging.info("found no spotify url, generated one is (%s)", spotify_url)
+        if not spotify:
+            # Spotify URL
+            spotify_url = get_spotify_track_url(song)
+            logging.info("No spotify url given, generated one is (%s)", spotify_url)
             print(f'auto-generated spotify url is : "{spotify_url}"')
+            # File Name
+            file_name = get_spotify_name_artits(spotify_url)
+            print(f'auto-generated file name is : "{file_name}"')
     # Correct File Name
     formatted_name = sanitize_filename(file_name)
     final_file = f"output/{formatted_name}.flac"
@@ -298,7 +302,7 @@ if __name__ == "__main__":
             "File (%s) already exists, not ovewriting it but program will go on because why not",
             final_file
         )
-    if not youtube_url:
+    if not youtube:
         youtube_url = get_youtube_link(
             formatted_name, spotify_url, tolerance_sec, max_results_ytsearch
         )
