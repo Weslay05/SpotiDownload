@@ -266,9 +266,9 @@ if __name__ == "__main__":
         youtube = ""
     else:
         logging.info('Using given Arguments')
-        file_name = args.file_name
-        spotify_url = args.spotify_url
-        youtube_url = args.youtube_url
+        song = args.song
+        spotify = args.spotify
+        youtube = args.youtube
     # Secondary Variables
     tolerance_sec = 2
     max_results_ytsearch = 10
