@@ -1,15 +1,15 @@
+import argparse
 import csv
 import os
+import platform
 
 # --- CONFIG ---
-CSV_FILE = "assets/Wide_Known_Songs.csv"   # exported from Exportify or Spotlistr
-MUSIC_DIR = r"E:\Volume\pixels\Music\.newsongs\files" # root folder of your FLAC library
-OUTPUT_M3U = "playlist.m3u"
+OUTPUT_M3U = "assets/playlist.m3u"
 
 # Column name from the CSV for song title (depends on export)
 TITLE_COLUMN = "Track Name"  # Exportify usually uses this
+ARTIST_COLUMN = "Artist Name(s)" # And this
 
-# --- SCRIPT ---
 def find_song_path(song_name, music_dir):
     """Search recursively for a file containing the song name (case-insensitive)."""
     song_lower = song_name.lower()
@@ -19,21 +19,46 @@ def find_song_path(song_name, music_dir):
                 return os.path.join(root, f)
     return None
 
-
-def main():
-    with open(CSV_FILE, newline='', encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
+if __name__ == "__main__":
+    # Argument Parser
+    parser = argparse.ArgumentParser(description="m3u file generator")
+    parser.add_argument("--csv", default="", help="CSV file Path")
+    parser.add_argument("--music", default="", help="Music Search Folder")
+    args = parser.parse_args()
+    
+    # Check if everything is there
+    if not args.csv:
+        print("Non existing csv file path")
+        return 1
+    if not args.music:
+        print("Non existing music file path")
+        return 1
+    
+    # Set Args
+    if platform.system() == 'Windows':
+        csv_file = fr"{args.csv}"
+        music_dir = r"{args.music}"  # Search for Songs in ...
+    elif platform.system() == 'Linux':
+        csv_file = f"{args.csv}"
+        music_dir = "{args.music}"  # Search for Songs in ...    
+    print("Using : ", csv_file)
+    print("Searching for Music in : ", music_dir)
+    
+    
+    with open(csv_file, newline='', encoding="utf-8") as csvfile:
+        reader = list(csv.DictReader(csvfile))
         song_names = [row[TITLE_COLUMN] for row in reader]
+        artist = [row[ARTIST_COLUMN] for row in reader]
 
     found_paths = []
     missing = []
 
-    for song in song_names:
-        path = find_song_path(song, MUSIC_DIR)
+    for song, artist in zip(song_names, artist):
+        path = find_song_path(song, music_dir)
         if path:
             found_paths.append(path)
         else:
-            missing.append(song)
+            missing.append((song, artist))
 
     with open(OUTPUT_M3U, "w", encoding="utf-8") as m3u:
         for p in found_paths:
@@ -42,9 +67,5 @@ def main():
     print(f"✅ Playlist written to {OUTPUT_M3U}")
     if missing:
         print("⚠️ Songs not found:")
-        for m in missing:
-            print(" -", m)
-
-
-if __name__ == "__main__":
-    main()
+        for song, artist in missing:
+            print(f"{song} - {artist}")
