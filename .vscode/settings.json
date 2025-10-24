@@ -3,12 +3,16 @@
         "acodec",
         "Analysed",
         "artits",
+        "bestaudio",
         "Couldnt",
         "csvfile",
         "flac",
         "levelname",
         "loudnorm",
+        "noplaylist",
+        "outtmpl",
         "spotipy",
+        "trackfile",
         "ytmusic",
         "ytsearch"
     ]

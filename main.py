@@ -299,7 +299,7 @@ if __name__ == "__main__":
     if os.path.exists(final_file):
         print("file already exists")
         logging.info(
-            "File (%s) already exists, not ovewriting it but program will go on because why not",
+            "File (%s) already exists, not overwriting it but program will go on because why not",
             final_file
         )
     if not youtube:
