@@ -287,11 +287,11 @@ if __name__ == "__main__":
             print(f'auto-generated file name is : "{file_name}"')
         if not spotify:
             # Spotify URL
-            spotify_url = get_spotify_track_url(song)
-            logging.info("No spotify url given, generated one is (%s)", spotify_url)
-            print(f'auto-generated spotify url is : "{spotify_url}"')
+            spotify = get_spotify_track_url(song)
+            logging.info("No spotify url given, generated one is (%s)", spotify)
+            print(f'auto-generated spotify url is : "{spotify}"')
             # File Name
-            file_name = get_spotify_name_artits(spotify_url)
+            file_name = get_spotify_name_artits(spotify)
             print(f'auto-generated file name is : "{file_name}"')
     # Correct File Name
     formatted_name = sanitize_filename(file_name)
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         )
     if not youtube:
         youtube_url = get_youtube_link(
-            formatted_name, spotify_url, tolerance_sec, max_results_ytsearch
+            formatted_name, spotify, tolerance_sec, max_results_ytsearch
         )
         logging.info("no youtube url given, generated one is (%s)", youtube_url)
         print(f'auto-generated youtube url is : "{youtube_url}"')
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     # Normalize Audio
     normalize_audio(input_file, tmp_file, measured)
     # Get Metadata
-    metadata = fetch_metadata(spotify_url)
+    metadata = fetch_metadata(spotify)
     # Apply Metadata
     embed_metadata(tmp_file, final_file, tmp_cover, metadata)
     # Delete Temp Files
