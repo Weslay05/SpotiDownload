@@ -19,8 +19,8 @@ read -p "Enter Youtube_url (Optional): " youtube_url
 read -p "Enter Spotify Url (Optional): " spotify_url
 if [ -n "$spotify_url" ]; then
     cmd="$cmd --spotify \"$spotify_url\"" # Add Command
-    read -p "Enter File Name (Optional): " file_name
-    [ -n "$file_name" ] && cmd="$cmd --song \"$file_name\"" # Add Command
+    read -p "Enter Song Name and Artist (Optional): " song
+    cmd="$cmd --song \"$song\"" # Add Command
 else
     read -p "Enter Song Name and Artist (Required): " song
     cmd="$cmd --song \"$song\"" # Add Command
