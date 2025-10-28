@@ -303,15 +303,15 @@ if __name__ == "__main__":
             final_file
         )
     if not youtube:
-        youtube_url = get_youtube_link(
+        youtube = get_youtube_link(
             formatted_name, spotify, tolerance_sec, max_results_ytsearch
         )
-        logging.info("no youtube url given, generated one is (%s)", youtube_url)
-        print(f'auto-generated youtube url is : "{youtube_url}"')
-        
+        logging.info("no youtube url given, generated one is (%s)", youtube)
+        print(f'auto-generated youtube url is : "{youtube}"')
+
 
     # Download Audio
-    download_audio(input_file, youtube_url)
+    download_audio(input_file, youtube)
     # Analyse Audio
     measured = analyze_audio(input_file)
     # Normalize Audio
