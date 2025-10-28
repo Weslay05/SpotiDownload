@@ -281,20 +281,24 @@ if __name__ == "__main__":
     if not song and not spotify :
         print('No Song name or Spotify URL')
     else:
+        if song and spotify:
+            song=get_spotify_name_artits(spotify)
+            logging.info("Song name is (%s)", song)
         if not song:
-            file_name = get_spotify_name_artits(spotify)
-            logging.info("No Song name given, generated one is (%s)", file_name)
-            print(f'auto-generated file name is : "{file_name}"')
+            song = get_spotify_name_artits(spotify)
+            logging.info("No Song name given, generated one is (%s)", song)
+            print(f'auto-generated Song name is : "{song}"')
         if not spotify:
             # Spotify URL
             spotify = get_spotify_track_url(song)
             logging.info("No spotify url given, generated one is (%s)", spotify)
             print(f'auto-generated spotify url is : "{spotify}"')
-            # File Name
-            file_name = get_spotify_name_artits(spotify)
-            print(f'auto-generated file name is : "{file_name}"')
+            # Song
+            song=get_spotify_name_artits(spotify)
+            logging.info("Song name is (%s)", song)
+            
     # Correct File Name
-    formatted_name = sanitize_filename(file_name)
+    formatted_name = sanitize_filename(song)
     final_file = f"output/{formatted_name}.flac"
     if os.path.exists(final_file):
         print("file already exists")
@@ -302,6 +306,7 @@ if __name__ == "__main__":
             "File (%s) already exists, not overwriting it but program will go on because why not",
             final_file
         )
+        
     if not youtube:
         youtube = get_youtube_link(
             formatted_name, spotify, tolerance_sec, max_results_ytsearch
