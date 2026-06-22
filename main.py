@@ -7,7 +7,39 @@ import subprocess
 import requests
 import yt_dlp
 import sys
+import musicbrainzngs
 
+# Initialize the client with a descriptive user-agent string
+musicbrainzngs.set_useragent("SpotiDownloader", "2.0", "contact@example.com")
+
+def get_track_metadata(artist, title):
+    # Search for the recording
+    result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1)
+    
+    if not result['recording-list']:
+        return None
+        
+    track = result['recording-list'][0]
+    
+    # Process systematic variables
+    metadata = {
+        "title": track.get("title"),
+        "artist": track.get("artist-credit", [{}])[0].get("artist", {}).get("name"),
+        "duration_ms": int(track.get("length", 0)),  # Duration in milliseconds
+        "release_id": track.get("release-list", [{}])[0].get("id")
+    }
+    
+    # Fetch cover art URL if a release ID exists
+    if metadata["release_id"]:
+        metadata["cover_image"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front"
+    else:
+        metadata["cover_image"] = None
+        
+    return metadata
+
+# Usage
+data = get_track_metadata("Daft Punk", "Get Lucky")
+print(data)
 # Configure logging
 logging.basicConfig(
     filename="assets/spotify_youtube.log",     # log file name
@@ -78,14 +110,11 @@ def normalize_audio(file, decoy_file, measure_value):
     subprocess.run(cmd, check=False)
     logging.debug("Applying Norm")
 
-def get_youtube_link(search: str, track_url, tolerance, max_results): # TODO: Update to Youtube_API
+def get_youtube_link(search: str, tolerance, max_results):
     # Variables
-    track = sp.track(track_url)
     length_ms = track["duration_ms"]
     target_seconds = length_ms // 1000
-    
-    
-    # search function
+
     def do_search(query_type, search_for):
         ydl_opts = {
             # "match_filter": lambda info_dict: (
@@ -172,23 +201,10 @@ def get_youtube_link(search: str, track_url, tolerance, max_results): # TODO: Up
     # --- Error ---
     logging.critical("no yt url found")
     return None
-
-def get_spotify_track_url(song_artists): # TODO: Update to Youtube_API
-    query = song_artists
-    results = sp.search(q=query, type='track', limit=1)
-    items = results['tracks']['items']
-    if items:
-        track = items[0]
-        return track['external_urls']['spotify']  # URL of the track
-    else:
-        logging.warning("could not get spotify track url")
-        return None
     
-def get_spotify_name_artits(url): # TODO: Update to Youtube_API
-    track = sp.track(url)
-    name = track['name']          # Track name
+def get_song_artist(song_title): # TODO: Update to Youtube_API
     artists = ", ".join([a['name'] for a in track['artists']])  # Artist(s)
-    return f"{name} - {artists}"
+    return f"{song_title} - {artists}"
 
 def fetch_metadata(track_url): # TODO: Update to Youtube_API
     track = sp.track(track_url)
@@ -250,8 +266,6 @@ if __name__ == "__main__":
         logging.info('Using in-script values')
         song = ""
         youtube = ""
-        print("No Input: quitting")
-        sys.exit(1)
     else:
         logging.info('Using given Arguments')
         song = args.song
