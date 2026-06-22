@@ -6,14 +6,7 @@ import argparse
 import subprocess
 import requests
 import yt_dlp
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
-
-
-# Spotify API Key
-CLIENT_ID = "client-id"
-CLIENT_SECRET = "client-secret"
-
+import sys
 
 # Configure logging
 logging.basicConfig(
@@ -23,10 +16,6 @@ logging.basicConfig(
     level=logging.INFO,                 # log level: DEBUG, INFO, WARNING, ERROR
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-# Spotify Client
-auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
-sp = spotipy.Spotify(auth_manager=auth_manager)
-
 
 def sanitize_filename(song_artists):
     # Split song and artist
@@ -89,7 +78,7 @@ def normalize_audio(file, decoy_file, measure_value):
     subprocess.run(cmd, check=False)
     logging.debug("Applying Norm")
 
-def get_youtube_link(search: str, track_url, tolerance, max_results):
+def get_youtube_link(search: str, track_url, tolerance, max_results): # TODO: Update to Youtube_API
     # Variables
     track = sp.track(track_url)
     length_ms = track["duration_ms"]
@@ -123,7 +112,7 @@ def get_youtube_link(search: str, track_url, tolerance, max_results):
                 logging.error("Error in %s: %s", query_type, str(e))
                 return []
             
-            
+    # TODO: Add Youtube Music only Music search
     # # --- 1. Try YouTube Music ---
     # for entry in do_search("https://music.youtube.com/search?q=", search):
     #     if entry.get("duration") is None:
@@ -184,7 +173,7 @@ def get_youtube_link(search: str, track_url, tolerance, max_results):
     logging.critical("no yt url found")
     return None
 
-def get_spotify_track_url(song_artists):
+def get_spotify_track_url(song_artists): # TODO: Update to Youtube_API
     query = song_artists
     results = sp.search(q=query, type='track', limit=1)
     items = results['tracks']['items']
@@ -195,13 +184,13 @@ def get_spotify_track_url(song_artists):
         logging.warning("could not get spotify track url")
         return None
     
-def get_spotify_name_artits(url):
+def get_spotify_name_artits(url): # TODO: Update to Youtube_API
     track = sp.track(url)
     name = track['name']          # Track name
     artists = ", ".join([a['name'] for a in track['artists']])  # Artist(s)
     return f"{name} - {artists}"
 
-def fetch_metadata(track_url):
+def fetch_metadata(track_url): # TODO: Update to Youtube_API
     track = sp.track(track_url)
     
     # Get artist details
@@ -252,23 +241,22 @@ if __name__ == "__main__":
     # Argument Parser
     parser = argparse.ArgumentParser(description="Spotify ↔ YouTube helper")
     parser.add_argument("--song", default="", help="Search for ...")
-    parser.add_argument("--spotify", default="", help="Spotify track URL")
     parser.add_argument("--youtube", default="", help="YouTube video URL")
     args = parser.parse_args()
-    
-    
+
     # Main Variables
     logging.info("Starting to download a new Track with given data")
-    if not args.song and not args.spotify:
+    if not args.song and not args.youtube:
         logging.info('Using in-script values')
         song = ""
-        spotify = ""
         youtube = ""
+        print("No Input: quitting")
+        sys.exit(1)
     else:
         logging.info('Using given Arguments')
         song = args.song
-        spotify = args.spotify
         youtube = args.youtube
+
     # Secondary Variables
     tolerance_sec = 2
     max_results_ytsearch = 10
@@ -278,21 +266,19 @@ if __name__ == "__main__":
     
     
     # Look if something is missing
-    if not song and not spotify :
-        print('No Song name or Spotify URL')
+    if not song and not youtube :
+        print('No Song name or Youtube URL')
     else:
-        if song and spotify:
-            song=get_spotify_name_artits(spotify)
+        # TODO: Update to Youtube_API
+        if song and youtube:
+            # TODO: Add all variables
             logging.info("Song name is (%s)", song)
         if not song:
-            song = get_spotify_name_artits(spotify)
+            # TODO: Derive song from youtube url
             logging.info("No Song name given, generated one is (%s)", song)
             print(f'auto-generated Song name is : "{song}"')
-        if not spotify:
-            # Spotify URL
-            spotify = get_spotify_track_url(song)
-            logging.info("No spotify url given, generated one is (%s)", spotify)
-            print(f'auto-generated spotify url is : "{spotify}"')
+        if not song:
+            # TODO: Derive youtube url from song name
             # Song
             song=get_spotify_name_artits(spotify)
             logging.info("Song name is (%s)", song)
@@ -308,7 +294,7 @@ if __name__ == "__main__":
         )
         
     if not youtube:
-        youtube = get_youtube_link(
+        youtube = get_youtube_link( # FIXME: Youtube URL from youtube_Search instead of spotify
             formatted_name, spotify, tolerance_sec, max_results_ytsearch
         )
         logging.info("no youtube url given, generated one is (%s)", youtube)
@@ -317,14 +303,17 @@ if __name__ == "__main__":
 
     # Download Audio
     download_audio(input_file, youtube)
-    # Analyse Audio
+    
+    # Normalize Loudness of Audio
     measured = analyze_audio(input_file)
-    # Normalize Audio
     normalize_audio(input_file, tmp_file, measured)
+    
     # Get Metadata
-    metadata = fetch_metadata(spotify)
+    metadata = fetch_metadata(spotify) # FIXME: Get Metadata from non-spotify source
+    
     # Apply Metadata
     embed_metadata(tmp_file, final_file, tmp_cover, metadata)
+    
     # Delete Temp Files
     os.remove(tmp_file)
     os.remove(input_file)
