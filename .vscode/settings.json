@@ -9,10 +9,12 @@
         "flac",
         "levelname",
         "loudnorm",
+        "musicbrainzngs",
         "noplaylist",
         "outtmpl",
         "spotipy",
         "trackfile",
+        "useragent",
         "ytmusic",
         "ytsearch"
     ]

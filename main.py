@@ -5,41 +5,13 @@ import re
 import argparse
 import subprocess
 import requests
-import yt_dlp
+from yt_dlp import YoutubeDL
 import sys
 import musicbrainzngs
 
 # Initialize the client with a descriptive user-agent string
 musicbrainzngs.set_useragent("SpotiDownloader", "2.0", "contact@example.com")
 
-def get_track_metadata(artist, title):
-    # Search for the recording
-    result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1)
-    
-    if not result['recording-list']:
-        return None
-        
-    track = result['recording-list'][0]
-    
-    # Process systematic variables
-    metadata = {
-        "title": track.get("title"),
-        "artist": track.get("artist-credit", [{}])[0].get("artist", {}).get("name"),
-        "duration_ms": int(track.get("length", 0)),  # Duration in milliseconds
-        "release_id": track.get("release-list", [{}])[0].get("id")
-    }
-    
-    # Fetch cover art URL if a release ID exists
-    if metadata["release_id"]:
-        metadata["cover_image"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front"
-    else:
-        metadata["cover_image"] = None
-        
-    return metadata
-
-# Usage
-data = get_track_metadata("Daft Punk", "Get Lucky")
-print(data)
 # Configure logging
 logging.basicConfig(
     filename="assets/spotify_youtube.log",     # log file name
@@ -49,7 +21,45 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-def sanitize_filename(song_artists):
+def get_metadata_musicbrainz(title: str, artist: str):
+    # Search for the recording
+    result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1) # artistname
+    
+    if not result['recording-list']:
+        return None
+        
+    track = result['recording-list'][0]
+    
+    # Process systematic variables
+    GENRES = [
+        g["name"]
+        for g in track.get("genre-list", [])
+        if "name" in g
+    ]
+    if not GENRES:
+        GENRES = [
+            t["name"]
+            for t in track.get("tag-list", [])
+            if "name" in t
+        ]
+    metadata = {
+        "title": track.get("title"),
+        "artist": track.get("artist-credit", [{}])[0].get("artist", {}).get("name"),
+        "duration_ms": int(track.get("length", 0)),  # Duration in milliseconds
+        "release_id": track.get("release-list", [{}])[0].get("id"),
+        "album": track.get("release-list", [{}])[0].get("title"),
+        "date": track.get("release-list", [{}])[0].get("date"),
+        "genres": GENRES
+    }
+    # Fetch cover art URL if a release ID exists
+    if metadata["release_id"]:
+        metadata["cover_url"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front" # TODO: Natively download Image
+    else:
+        metadata["cover_url"] = None
+        
+    return metadata
+
+def sanitize_filename(song_artists: str):
     # Split song and artist
     if ' - ' in song_artists:
         song_name, artists = song_artists.split(' - ', 1)
@@ -68,7 +78,12 @@ def sanitize_filename(song_artists):
     if len(artists) > max_length_artists:
         artists = artists[:max_length_artists].rstrip()
     logging.debug("%s - %s", song_name, song_artists)
-    return f'{song_name} - {artists}'
+    #return f'{song_name} - {artists}'
+    SONG_ARTIST = {
+        "title": song_name,
+        "artist": artist
+    }
+    return SONG_ARTIST
 
 def download_audio(file, url):
     """Download audio from YouTube video URL."""
@@ -79,7 +94,7 @@ def download_audio(file, url):
         'quiet': False,  # Show progress during download
     }   
     # download
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    with YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
         logging.debug("Downloaded %s", url)
 
@@ -110,9 +125,19 @@ def normalize_audio(file, decoy_file, measure_value):
     subprocess.run(cmd, check=False)
     logging.debug("Applying Norm")
 
-def get_youtube_link(search: str, tolerance, max_results):
+def get_metadata_ytdlp(url: str): # TODO: Optimize so it doesn't download a second time
+    with YoutubeDL() as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+    data = {
+        "video_url": info_dict.get("url", None),
+        "video_id": info_dict.get("id", None),
+        "video_title": info_dict.get('title', None)
+    }
+    return data;
+
+def get_youtube_link(search: str, tolerance, max_results, metadata: dict):
     # Variables
-    length_ms = track["duration_ms"]
+    length_ms = metadata["duration_ms"]
     target_seconds = length_ms // 1000
 
     def do_search(query_type, search_for):
@@ -133,7 +158,7 @@ def get_youtube_link(search: str, tolerance, max_results):
             'noplaylist': True,
             'default_search': query_type
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with YoutubeDL(ydl_opts) as ydl:
             try:
                 info = ydl.extract_info(f"{query_type}{max_results}:{search_for}", download=False)
                 return info.get("entries", []) if info else []
@@ -201,12 +226,8 @@ def get_youtube_link(search: str, tolerance, max_results):
     # --- Error ---
     logging.critical("no yt url found")
     return None
-    
-def get_song_artist(song_title): # TODO: Update to Youtube_API
-    artists = ", ".join([a['name'] for a in track['artists']])  # Artist(s)
-    return f"{song_title} - {artists}"
 
-def fetch_metadata(track_url): # TODO: Update to Youtube_API
+def get_metadata_spotify(track_url):
     track = sp.track(track_url)
     
     # Get artist details
@@ -234,7 +255,7 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     
     cmd = [
         "ffmpeg", 
-        "-n", # always not overwrite
+        "-n", # don't overwrite existing files
         "-i", wav_file, # input file
         "-i", cover_path, #cover
         "-map", "0", "-map", "1",
@@ -283,22 +304,20 @@ if __name__ == "__main__":
     if not song and not youtube :
         print('No Song name or Youtube URL')
     else:
-        # TODO: Update to Youtube_API
         if song and youtube:
-            # TODO: Add all variables
-            logging.info("Song name is (%s)", song)
+            logging.info("Song name is: (%s)", song)
+            logging.info("Youtube_URL is: (%s)", youtube)
         if not song:
             # TODO: Derive song from youtube url
-            logging.info("No Song name given, generated one is (%s)", song)
-            print(f'auto-generated Song name is : "{song}"')
-        if not song:
-            # TODO: Derive youtube url from song name
-            # Song
-            song=get_spotify_name_artits(spotify)
-            logging.info("Song name is (%s)", song)
+            logging.info("No Song name given, generated one is: (%s)", song)
+        if not youtube:
+            SONG_DATA = sanitize_filename(song)
+            formatted_name = f"{SONG_DATA['title']} - {SONG_DATA['artist']}"
+            metadata = get_metadata_musicbrainz(SONG_DATA['title'], SONG_DATA['artist'])
+            youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, metadata) # TODO: Maybe change song -> formatted_name
+            logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
             
     # Correct File Name
-    formatted_name = sanitize_filename(song)
     final_file = f"output/{formatted_name}.flac"
     if os.path.exists(final_file):
         print("file already exists")
@@ -306,14 +325,6 @@ if __name__ == "__main__":
             "File (%s) already exists, not overwriting it but program will go on because why not",
             final_file
         )
-        
-    if not youtube:
-        youtube = get_youtube_link( # FIXME: Youtube URL from youtube_Search instead of spotify
-            formatted_name, spotify, tolerance_sec, max_results_ytsearch
-        )
-        logging.info("no youtube url given, generated one is (%s)", youtube)
-        print(f'auto-generated youtube url is : "{youtube}"')
-
 
     # Download Audio
     download_audio(input_file, youtube)
@@ -322,10 +333,7 @@ if __name__ == "__main__":
     measured = analyze_audio(input_file)
     normalize_audio(input_file, tmp_file, measured)
     
-    # Get Metadata
-    metadata = fetch_metadata(spotify) # FIXME: Get Metadata from non-spotify source
-    
-    # Apply Metadata
+    # Metadata
     embed_metadata(tmp_file, final_file, tmp_cover, metadata)
     
     # Delete Temp Files
