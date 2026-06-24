@@ -237,7 +237,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
         return youtube_entries[0]["webpage_url"]
     
     # --- Error ---
-    logging.critical("no yt url found")
+    logging.warning("No youtube_url found for: (%s)", search)
     return None
 
 def get_metadata_spotify(track_url):
@@ -274,10 +274,10 @@ def embed_metadata(wav_file, output_file, cover_path, data):
             # img.save(cover_path, format="JPEG", quality=70)
             logging.debug("wrote cover.jpg natively")
         except Exception as e:
-            logging.error("Invalid Cover Data: %s", str(e))
+            logging.critical("Invalid Cover Data: %s", str(e))
             img = Image.new("RGB", (1, 1), (255, 255, 255))
             img.save(cover_path, "JPEG")
-            logging.error("Created decoy JPG just to download and go on")
+            logging.critical("Created decoy JPG just to download and go on")
         
         
     genre_str = ", ".join(data["genres"])
@@ -320,10 +320,10 @@ def embed_metadata(wav_file, output_file, cover_path, data):
 def compress_audio(file: dict, output_path: str):
     if os.path.exists(file["path"]):
         if os.path.exists(output_path):
-            logging.info("'%s' already exists: overwriting it", output_path)
+            logging.info("Overwriting: `%s`", output_path)
             os.remove(output_path)
     else:
-        logging.critical("'%s' doesn't exist: skipping compression", file["path"])
+        logging.error("`%s` doesn't exist: skipping compression", file["path"])
         return 1
     cmd = [
         "ffmpeg",
@@ -333,6 +333,19 @@ def compress_audio(file: dict, output_path: str):
     ]
     subprocess.run(cmd, check=False)
     return 0
+
+def check_filepaths(file_path: str, compression_arg: bool):
+    if os.path.exists(file_path):
+        if compression_arg is True:
+            print(f"`{file_path}` already exists & compression activated: skipping to compression")
+            logging.info("File (%s) already exists", file_path)
+            return 2
+        else:
+            print(f"`{file_path}` already exists & compression deactivated: closing")
+            logging.info("File (%s) already exists & compression deactivated: skipping\n", file_path)
+            return 1
+    else:
+        return 0
 
 if __name__ == "__main__":
     # Argument Parser
@@ -374,7 +387,7 @@ if __name__ == "__main__":
 
     # Look if something is missing
     if not song and not youtube :
-        print('No Song name or Youtube URL')
+        print('No Song name or Youtube URL\n')
         sys.exit(1)
     else:
         if song and youtube:
@@ -411,53 +424,65 @@ if __name__ == "__main__":
     }
     FILE_COMPRESSED = f"{COMPRESSION_OPT_PATH}/{opt_filename}.{final_file["container"]}"
 
-    # Check if files are already there
-    if os.path.exists(final_file["path"]):
-        if final_file['compress'] is True:
-            print(f"`{final_file['path']}` already exists & compression activated: skipping to compression")
-            logging.info("File (%s) already exists", final_file["path"])
-        else:
-            print(f"`{final_file['path']}` already exists & compression deactivated: closing")
-            logging.info("File (%s) already exists & compression deactivated: skipping\n", final_file["path"])
+    match check_filepaths(final_file["path"], final_file["compress"]):
+        case 1: # All files already there
             sys.exit(0)
-    else:
-        # Download Audio
-        #QUERY = f"{METADATA['title']} - {METADATA['artist']}"
-        QUERY = opt_filename
-        #QUERY = song
-        youtube = get_youtube_link(QUERY, tolerance_sec, max_results_ytsearch, METADATA)
-        logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
-        download_audio(input_file, youtube)
+        case 2: # Skipping to compression
+            pass
+        case 0: # No initial file there, downloading audio
+            if not youtube: # Fetch Youtube URL
+                # QUERY = f"{METADATA['title']} - {METADATA['artist']}"
+                QUERY = opt_filename
+                youtube = get_youtube_link(QUERY, tolerance_sec, max_results_ytsearch, METADATA)
+                if youtube is None:
+                    # Fallback to user Input
+                    USER_INPUT = f"{song_data['title']} - {song_data['artist']}"
 
-        # Normalize Loudness of Audio
-        measured = analyze_audio(input_file)
-        normalize_audio(input_file, tmp_file, measured)
+                    # Redefining/Revalidating Things
+                    QUERY = USER_INPUT
+                    final_file["path"] = f"output/{USER_INPUT}.flac"
+                    FILE_COMPRESSED = f"{COMPRESSION_OPT_PATH}/{USER_INPUT}.{final_file["container"]}"
 
-        # Metadata
-        embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
+                    # Running loop again
+                    match check_filepaths(final_file["path"], final_file["compress"]):
+                        case 1: # All files already there
+                            sys.exit(0)
+                        case 2: # Skipping to compression
+                            pass
+                        case 0: # No initial file there, downloading audio
+                            logging.critical("Fetching Youtube_URL failed, falling back to user input query: (%s)", QUERY) # TODO: change ugly $s to beautiful horses f""
+                            youtube = get_youtube_link(QUERY, tolerance_sec, max_results_ytsearch, METADATA)
+                            if youtube is None:
+                                logging.error("Fetching Youtube_URL failed for all Queries\n")
+                                sys.exit(1)
+                logging.info("No Youtube_URL given, generated one is: (%s)", youtube)
 
-        # Delete Temp Files
-        logging.debug("removing temp files")
-        os.remove(tmp_file)
-        os.remove(input_file)
-        os.remove(tmp_cover)
+            download_audio(input_file, youtube)
+
+            measured = analyze_audio(input_file)
+            normalize_audio(input_file, tmp_file, measured)
+
+            embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
+
+            # Delete Temp Files
+            logging.debug("removing temp files")
+            os.remove(tmp_file)
+            os.remove(input_file)
+            os.remove(tmp_cover)
 
     # Compress Audio
-    if final_file['compress'] is True:
-        if os.path.exists(final_file["path"]):
-            Path(COMPRESSION_OPT_PATH).mkdir(exist_ok=True)
-            compress_audio(final_file, FILE_COMPRESSED)
-            # os.remove(final_file["path"]) # Delete large file
-            txt = f"✅ Compressed to: '{FILE_COMPRESSED}'"
-            print(txt)
-            logging.info(txt)
-        else:
-            logging.critical("%s was never written", final_file["path"])
-            sys.exit(1)
+    if check_filepaths(final_file["path"], final_file["compress"]) == 0:
+        logging.error("`%s` was never written\n", final_file["path"])
+        sys.exit(1)
     else:
-        logging.info("Compression deactivated: skipping")
+        Path(COMPRESSION_OPT_PATH).mkdir(exist_ok=True)
+        compress_audio(final_file, FILE_COMPRESSED)
+        # os.remove(final_file["path"]) # Delete large file
+        txt = f"✅ Compressed: '{FILE_COMPRESSED}'"
+        print(txt)
+        logging.info(txt)
 
-    txt = f"✅ `{final_file["path"]}`\n"
+    txt = f"✅ Downloaded: `{final_file["path"]}`\n"
     print(txt)
     logging.info(txt)
     sys.exit(0)
