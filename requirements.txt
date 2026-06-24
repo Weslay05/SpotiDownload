@@ -2,3 +2,4 @@ requests
 yt-dlp
 musicbrainzngs
 pillow
+colorlog

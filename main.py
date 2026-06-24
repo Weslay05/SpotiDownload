@@ -1,5 +1,6 @@
 import sys
 import logging
+import colorlog
 import os
 import io
 import json
@@ -20,6 +21,8 @@ musicbrainzngs.set_useragent("SongDownloader", "2.0", "contact@example.com")
 if not Path("assets/song_downloader.log").exists():
     Path("assets").mkdir(exist_ok=True)
     Path("assets/song_downloader.log").write_text("", "UTF-8")
+    
+logger = logging.getLogger()
 logging.basicConfig(
     filename="assets/song_downloader.log",     # log file name
     filemode="a",
@@ -27,6 +30,26 @@ logging.basicConfig(
     level=logging.INFO,                 # log level: DEBUG, INFO, WARNING, ERROR
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+# beautiful horses color to logging
+formatter = colorlog.ColoredFormatter(
+    "%(log_color)s%(levelname)-8s%(reset)s %(blue)s%(message)s",
+    datefmt=None,
+    reset=True,
+    log_colors={
+        'DEBUG':    'cyan',
+        'INFO':     'green',
+        'WARNING':  'yellow',
+        'ERROR':    'red',
+        'CRITICAL': 'red,bg_white',  # Red text on a white background
+    },
+    secondary_log_colors={},
+    style='%'
+)
+handler = colorlog.StreamHandler() # Output to Terminal too
+handler.setFormatter(formatter)
+logger.addHandler(handler) # add handler for color format
+
 
 logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
 def get_metadata_musicbrainz(title: str, artist: str):
@@ -65,7 +88,7 @@ def get_metadata_musicbrainz(title: str, artist: str):
     else:
         metadata["cover_url"] = 'https://None'
         logging.critical(
-            "No Song Cover found using `%s` return: %s",
+            "No Song Cover found using '%s' return: '%s'",
             metadata['release_id'],
             metadata["cover_url"]
         )
@@ -109,7 +132,7 @@ def download_audio(file, url):
     # download
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
-        logging.debug("Downloaded %s", url)
+        logging.debug("Downloaded '%s'", url)
 
 def analyze_audio(file):
     cmd = [
@@ -188,7 +211,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
     #     if abs(yt_duration - target_seconds) <= tolerance_sec:
     #         return entry["webpage_url"]  # good match
     # logging.warning(
-    #     "YouTube Music failed, falling back to Youtube Search results for %s",
+    #     "YouTube Music failed, falling back to Youtube Search results for '%s'",
     #     search
     # )
     
@@ -201,7 +224,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
             logging.debug("returning good youtube url")
             return entry["webpage_url"]
     logging.warning(
-        "Youtube Search failed, falling back to YouTube Topic Search for %s",
+        "Youtube Search failed, falling back to YouTube Topic Search for '%s'",
         search
     )
     
@@ -214,7 +237,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
             logging.debug("returning good youtube url")
             return entry["webpage_url"]
     logging.warning(
-        "Youtube Topic Search failed, falling back to Youtube Lyrics Video for %s",
+        "Youtube Topic Search failed, falling back to Youtube Lyrics Video for '%s'",
         search
     )
     
@@ -227,7 +250,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
             logging.debug("returning good youtube url")
             return entry["webpage_url"]
     logging.critical(
-        "Youtube Lyrics Video not found, falling back to first best result for %s",
+        "Youtube Lyrics Video not found, falling back to first best result for '%s'",
         search
     )
     
@@ -320,10 +343,10 @@ def embed_metadata(wav_file, output_file, cover_path, data):
 def compress_audio(file: dict, output_path: str):
     if os.path.exists(file["path"]):
         if os.path.exists(output_path):
-            logging.info("Overwriting: `%s`", output_path)
+            logging.info("Overwriting: '%s'", output_path)
             os.remove(output_path)
     else:
-        logging.error("`%s` doesn't exist: skipping compression", file["path"])
+        logging.error("'%s' doesn't exist: skipping compression", file["path"])
         return 1
     cmd = [
         "ffmpeg",
@@ -337,13 +360,10 @@ def compress_audio(file: dict, output_path: str):
 def check_filepaths(file_path: str, compression_arg: bool):
     if os.path.exists(file_path):
         if compression_arg is True:
-            print(f"`{file_path}` already exists & compression activated: skipping to compression")
-            logging.info("File (%s) already exists", file_path)
+            logging.info("File '%s' already exists & compression activated: skipping to compression", file_path)
             return 2
-        else:
-            print(f"`{file_path}` already exists & compression deactivated: closing")
-            logging.info("File (%s) already exists & compression deactivated: skipping\n", file_path)
-            return 1
+        logging.info("File '%s' already exists & compression deactivated: closing\n", file_path)
+        return 1
     else:
         return 0
 
@@ -387,12 +407,12 @@ if __name__ == "__main__":
 
     # Look if something is missing
     if not song and not youtube :
-        print('No Song name or Youtube URL\n')
+        logging.error("No Song name or Youtube URL\n")
         sys.exit(1)
     else:
         if song and youtube:
             logging.info(
-                "... Processing: (%s) with (%s) ---",
+                "... Processing: '%s' (%s) ---",
                 song,
                 youtube
             )
@@ -407,7 +427,7 @@ if __name__ == "__main__":
             # TODO: Derive song from youtube url
             logging.info("No Song name given, generated one is: (%s)", song)
         if not youtube:
-            logging.info("... Processing: (%s)", song)
+            logging.info("... Processing: '%s'", song)
             song_data = sanitize_filename(song)
             METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
             filename_data = sanitize_filename(f"{METADATA['title']} - {METADATA['artist']}")
@@ -450,7 +470,7 @@ if __name__ == "__main__":
                         case 2: # Skipping to compression
                             pass
                         case 0: # No initial file there, downloading audio
-                            logging.critical("Fetching Youtube_URL failed, falling back to user input query: (%s)", QUERY) # TODO: change ugly $s to beautiful horses f""
+                            logging.critical("Fetching Youtube_URL failed, falling back to user input query: '%s'", QUERY)
                             youtube = get_youtube_link(QUERY, tolerance_sec, max_results_ytsearch, METADATA)
                             if youtube is None:
                                 logging.error("Fetching Youtube_URL failed for all Queries\n")
@@ -478,11 +498,7 @@ if __name__ == "__main__":
         Path(COMPRESSION_OPT_PATH).mkdir(exist_ok=True)
         compress_audio(final_file, FILE_COMPRESSED)
         # os.remove(final_file["path"]) # Delete large file
-        txt = f"✅ Compressed: '{FILE_COMPRESSED}'"
-        print(txt)
-        logging.info(txt)
+        logging.info("✅ Compressed: '%s'", FILE_COMPRESSED)
 
-    txt = f"✅ Downloaded: `{final_file["path"]}`\n"
-    print(txt)
-    logging.info(txt)
+    logging.info("✅ Downloaded: '%s'\n", final_file["path"])
     sys.exit(0)
