@@ -345,11 +345,11 @@ if __name__ == "__main__":
     # Main Variables
     logging.info("Starting to download a new Track with given data")
     if not args.song and not args.youtube:
-        logging.info('Using in-script values')
+        logging.debug('Using in-script values')
         song = ""
         youtube = ""
     else:
-        logging.info('Using given Arguments')
+        logging.debug('Using given Arguments')
         song = args.song
         youtube = args.youtube
 
