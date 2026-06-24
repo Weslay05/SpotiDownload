@@ -4,16 +4,15 @@ import json
 import re
 import argparse
 import subprocess
-import requests
-from yt_dlp import YoutubeDL
-import sys
-import musicbrainzngs
-# from PIL import Image
-import io
 from pathlib import Path
 
+# from PIL import Image
+import requests
+from yt_dlp import YoutubeDL
+import musicbrainzngs
+
 # Initialize the client with a descriptive user-agent string
-musicbrainzngs.set_useragent("SpotiDownloader", "2.0", "contact@example.com")
+musicbrainzngs.set_useragent("SongDownloader", "2.0", "contact@example.com")
 
 # Configure logging
 if not Path("assets/song_downloader.log").exists():
@@ -86,11 +85,11 @@ def sanitize_filename(song_artists: str):
         artists = artists[:max_length_artists].rstrip()
     logging.debug("%s - %s", song_name, song_artists)
     #return f'{song_name} - {artists}'
-    SONG_ARTIST = {
+    song_title_artists = {
         "title": song_name,
         "artist": artists
     }
-    return SONG_ARTIST
+    return song_title_artists
 
 def download_audio(file, url):
     """Download audio from YouTube video URL."""
@@ -140,7 +139,7 @@ def get_metadata_ytdlp(url: str): # TODO: Optimize so it doesn't download a seco
         "video_id": info_dict.get("id", None),
         "video_title": info_dict.get('title', None)
     }
-    return data;
+    return data
 
 def get_youtube_link(search: str, tolerance, max_results, metadata: dict):
     # Variables
@@ -326,30 +325,35 @@ if __name__ == "__main__":
     input_file = "output/tmp_downloaded.wav"
     tmp_file = "output/tmp_normalized.wav"
     tmp_cover = "output/tmp_cover_data.jpg"
-    
-    
+
+
     # Look if something is missing
     if not song and not youtube :
         print('No Song name or Youtube URL')
     else:
         if song and youtube:
+            song_data = sanitize_filename(song)
+            METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
+            filename_data = sanitize_filename(f"{METADATA["title"]} - {METADATA["artist"]}")
+            opt_filename: str = f"{filename_data['title']} - {filename_data['artist']}"
             logging.info("Song name is: (%s)", song)
             logging.info("Youtube_URL is: (%s)", youtube)
         if not song:
             # TODO: Derive song from youtube url
             logging.info("No Song name given, generated one is: (%s)", song)
         if not youtube:
-            SONG_DATA = sanitize_filename(song)
-            SONG_TITLE_ARTIST = f"{SONG_DATA['title']} - {SONG_DATA['artist']}"
-            METADATA = get_metadata_musicbrainz(SONG_DATA['title'], SONG_DATA['artist'])
-            youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, METADATA) # TODO: Maybe change song -> SONG_TITLE_ARTIST
+            song_data = sanitize_filename(song)
+            METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
+            filename_data = sanitize_filename(f"{METADATA["title"]} - {METADATA["artist"]}")
+            opt_filename: str = f"{filename_data['title']} - {filename_data['artist']}"
+            youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, METADATA)
             logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
-            
+
     # Correct File Name
-    
+
     Path("output").mkdir(exist_ok=True)
     final_file = {
-        "path": f"output/{SONG_TITLE_ARTIST}.flac",
+        "path": f"output/{opt_filename}.flac",
         "compress": True,
         "codec": "libopus",
         "container": "opus",
@@ -361,17 +365,17 @@ if __name__ == "__main__":
             "File (%s) already exists, not overwriting it but program will go on because why not",
             final_file["path"]
         )
-        
+
     # Download Audio
     download_audio(input_file, youtube)
-    
+
     # Normalize Loudness of Audio
     measured = analyze_audio(input_file)
     normalize_audio(input_file, tmp_file, measured)
-    
+
     # Metadata
     embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
-    
+
     # Compress Audio
     if final_file["compress"] is True:
         SAVE_LOCATION = "output/compressed (ohio-impressed)"
@@ -380,10 +384,10 @@ if __name__ == "__main__":
             "ffmpeg",
             "-i", final_file["path"],
             "-c:a", final_file["codec"], "-b:a", final_file["bitrate"],
-            f"{SAVE_LOCATION}/{SONG_TITLE_ARTIST}.{final_file["container"]}"
+            f"{SAVE_LOCATION}/{opt_filename}.{final_file["container"]}"
         ]
         subprocess.run(cmd, check=False)
-    
+
     # Delete Temp Files
     os.remove(tmp_file)
     os.remove(input_file)
