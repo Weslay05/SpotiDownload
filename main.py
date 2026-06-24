@@ -1,12 +1,13 @@
 import logging
 import os
+import io
 import json
 import re
 import argparse
 import subprocess
 from pathlib import Path
 
-# from PIL import Image
+from PIL import Image
 import requests
 from yt_dlp import YoutubeDL
 import musicbrainzngs
@@ -61,7 +62,11 @@ def get_metadata_musicbrainz(title: str, artist: str):
         metadata["cover_url"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front" # TODO: Natively download Image
     else:
         metadata["cover_url"] = 'https://None'
-        logging.warning(f"No Song Cover found using `{metadata['release_id']}` return: {metadata["cover_url"]}")
+        logging.warning(
+            "No Song Cover found using `%s` return: %s",
+            metadata['release_id'],
+            metadata["cover_url"]
+        )
         
     return metadata
 
@@ -131,7 +136,7 @@ def normalize_audio(file, decoy_file, measure_value):
     subprocess.run(cmd, check=False)
     logging.debug("Applying Norm")
 
-def get_metadata_ytdlp(url: str): # TODO: Optimize so it doesn't download a second time
+def get_metadata_ytdlp(url: str):
     with YoutubeDL() as ydl:
         info_dict = ydl.extract_info(url, download=False)
     data = {
@@ -141,7 +146,7 @@ def get_metadata_ytdlp(url: str): # TODO: Optimize so it doesn't download a seco
     }
     return data
 
-def get_youtube_link(search: str, tolerance, max_results, metadata: dict):
+def get_youtube_link(search: str, tolerance, max_results, metadata: dict): # TODO: Cache Youtube_Search Query
     # Variables
     length_ms = metadata["duration_ms"]
     target_seconds = length_ms // 1000
@@ -172,7 +177,7 @@ def get_youtube_link(search: str, tolerance, max_results, metadata: dict):
                 logging.error("Error in %s: %s", query_type, str(e))
                 return []
             
-    # TODO: Add Youtube Music only Music search
+    # TODO: Youtube Music Search
     # # --- 1. Try YouTube Music ---
     # for entry in do_search("https://music.youtube.com/search?q=", search):
     #     if entry.get("duration") is None:
@@ -253,13 +258,21 @@ def get_metadata_spotify(track_url):
 
 def embed_metadata(wav_file, output_file, cover_path, data):
     cover_data = requests.get(data["cover_url"]).content
-    with open(cover_path, "wb") as f:
-        f.write(cover_data)
+    print(data["cover_url"])
+    try:
+        img = Image.open(io.BytesIO(cover_data)).convert("RGB")
+        with open(cover_path, "wb") as f:
+            f.write(cover_data)
+            logging.debug("wrote cover.jpg")
+        # TODO: Make JPG lighter than native
+        # img.save(cover_path, format="JPEG", quality=70)
         logging.debug("wrote cover.jpg")
-    # TODO: lighter jpg than native
-    # img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-    # img.save(cover_path, format="JPEG", quality=80)
-    # logging.debug("wrote cover.jpg")
+    except Exception as e:
+        logging.error("Invalid Cover Data: %s", str(e))
+        img = Image.new("RGB", (1, 1), (255, 255, 255))
+        img.save(cover_path, "JPEG")
+        logging.error("Created decoy JPG just to download and go on")
+        
         
     genre_str = ", ".join(data["genres"])
     
