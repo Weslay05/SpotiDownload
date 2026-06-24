@@ -147,7 +147,7 @@ def get_metadata_ytdlp(url: str):
     }
     return data
 
-def get_youtube_link(search: str, tolerance, max_results, metadata: dict): # TODO: Cache Youtube_Search Query
+def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata: dict): # TODO: Cache Youtube_Search Query
     # Variables
     length_ms = metadata["duration_ms"]
     target_seconds = length_ms // 1000
@@ -184,7 +184,7 @@ def get_youtube_link(search: str, tolerance, max_results, metadata: dict): # TOD
     #     if entry.get("duration") is None:
     #         continue
     #     yt_duration = entry["duration"]
-    #     if abs(yt_duration - target_seconds) <= tolerance:
+    #     if abs(yt_duration - target_seconds) <= tolerance_sec:
     #         return entry["webpage_url"]  # good match
     # logging.warning(
     #     "YouTube Music failed, falling back to Youtube Search results for %s",
@@ -196,7 +196,7 @@ def get_youtube_link(search: str, tolerance, max_results, metadata: dict): # TOD
         if entry.get("duration") is None:
             continue
         yt_duration = entry["duration"]
-        if abs(yt_duration - target_seconds) <= tolerance:
+        if abs(yt_duration - target_seconds) <= tolerance_sec:
             logging.debug("returning good youtube url")
             return entry["webpage_url"]
     logging.warning(
@@ -209,7 +209,7 @@ def get_youtube_link(search: str, tolerance, max_results, metadata: dict): # TOD
         if entry.get("duration") is None:
             continue
         yt_duration = entry["duration"]
-        if abs(yt_duration - target_seconds) <= tolerance:
+        if abs(yt_duration - target_seconds) <= tolerance_sec:
             logging.debug("returning good youtube url")
             return entry["webpage_url"]
     logging.warning(
@@ -222,7 +222,7 @@ def get_youtube_link(search: str, tolerance, max_results, metadata: dict): # TOD
         if entry.get("duration") is None:
             continue
         yt_duration = entry["duration"]
-        if abs(yt_duration - target_seconds) <= tolerance:
+        if abs(yt_duration - target_seconds) <= tolerance_sec:
             logging.debug("returning good youtube url")
             return entry["webpage_url"]
     logging.critical(
@@ -414,7 +414,10 @@ if __name__ == "__main__":
             sys.exit(0)
     else:
         # Download Audio
-        youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, METADATA)
+        #QUERY = f"{METADATA['title']} - {METADATA['artist']}"
+        QUERY = opt_filename
+        #QUERY = song
+        youtube = get_youtube_link(QUERY, tolerance_sec, max_results_ytsearch, METADATA)
         logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
         download_audio(input_file, youtube)
 
