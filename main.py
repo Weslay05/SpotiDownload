@@ -28,6 +28,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
 def get_metadata_musicbrainz(title: str, artist: str):
     # Search for the recording
     result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1) # artistname
