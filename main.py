@@ -63,7 +63,7 @@ def get_metadata_musicbrainz(title: str, artist: str):
         metadata["cover_url"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front" # TODO: Natively download Image
     else:
         metadata["cover_url"] = 'https://None'
-        logging.warning(
+        logging.critical(
             "No Song Cover found using `%s` return: %s",
             metadata['release_id'],
             metadata["cover_url"]
@@ -258,21 +258,25 @@ def get_metadata_spotify(track_url):
     return json_metadata
 
 def embed_metadata(wav_file, output_file, cover_path, data):
-    cover_data = requests.get(data["cover_url"]).content
-    print(data["cover_url"])
-    try:
-        img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-        with open(cover_path, "wb") as f:
-            f.write(cover_data)
-            logging.debug("wrote cover.jpg")
-        # TODO: Make JPG lighter than native
-        # img.save(cover_path, format="JPEG", quality=70)
-        logging.debug("wrote cover.jpg")
-    except Exception as e:
-        logging.error("Invalid Cover Data: %s", str(e))
+    if data["cover_url"] == "https://None":
+        cover_data = ""
         img = Image.new("RGB", (1, 1), (255, 255, 255))
         img.save(cover_path, "JPEG")
-        logging.error("Created decoy JPG just to download and go on")
+        logging.critical("No Real Cover, using decoy jpg")
+    else:
+        cover_data = requests.get(data["cover_url"]).content
+        try:
+            img = Image.open(io.BytesIO(cover_data)).convert("RGB")
+            with open(cover_path, "wb") as f:
+                f.write(cover_data)
+            # TODO: Make JPG lighter than native
+            # img.save(cover_path, format="JPEG", quality=70)
+            logging.debug("wrote cover.jpg natively")
+        except Exception as e:
+            logging.error("Invalid Cover Data: %s", str(e))
+            img = Image.new("RGB", (1, 1), (255, 255, 255))
+            img.save(cover_path, "JPEG")
+            logging.error("Created decoy JPG just to download and go on")
         
         
     genre_str = ", ".join(data["genres"])
@@ -312,7 +316,7 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     subprocess.run(cmd, check=False)
     logging.debug("embedding metadata done")
 
-def compress_audio(file: dict, output_path: str, ):
+def compress_audio(file: dict, output_path: str):
     if os.path.exists(file["path"]):
         if os.path.exists(output_path):
             logging.info("'%s' already exists: overwriting it", output_path)
@@ -432,14 +436,16 @@ if __name__ == "__main__":
             Path(COMPRESSION_OPT_PATH).mkdir(exist_ok=True)
             compress_audio(final_file, FILE_COMPRESSED)
             # os.remove(final_file["path"]) # Delete large file
-            print(f"✅ Compressed to: '{FILE_COMPRESSED}'")
-            logging.info("✅ Compressed to: '(%s)'\n", FILE_COMPRESSED)
+            txt = f"✅ Compressed to: '{FILE_COMPRESSED}'"
+            print(txt)
+            logging.info(txt)
         else:
             logging.critical("%s was never written", final_file["path"])
             sys.exit(1)
     else:
         logging.info("Compression deactivated: skipping")
 
-    print(f"✅ `{final_file["path"]}`")
-    logging.info("✅ `(%s)`\n", final_file["path"])
+    txt = f"✅ `{final_file["path"]}`\n"
+    print(txt)
+    logging.info(txt)
     sys.exit(0)
