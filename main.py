@@ -85,6 +85,7 @@ def get_metadata_musicbrainz(title: str, artist: str):
     # Fetch cover art URL if a release ID exists
     if metadata["release_id"]:
         metadata["cover_url"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front" # TODO: Natively download Image
+        metadata["cover_url_fallback"] = f"https://coverartarchive.org/release-group/{metadata['release_id']}/front" # TODO: Natively download Image
     else:
         metadata["cover_url"] = 'https://None'
         logging.critical(
@@ -297,11 +298,20 @@ def embed_metadata(wav_file, output_file, cover_path, data):
             # img.save(cover_path, format="JPEG", quality=70)
             logging.debug("wrote cover.jpg natively")
         except Exception as e:
-            logging.critical("Invalid Cover Data: %s", str(e))
-            img = Image.new("RGB", (1, 1), (255, 255, 255))
-            img.save(cover_path, "JPEG")
-            logging.critical("Created decoy JPG just to download and go on")
-
+            logging.debug("cover data: %s", str(e))
+            logging.warning("Invalid Cover Data falling back secondary cover")
+            cover_data = requests.get(data["cover_url_fallback"]).content
+            try:
+                img = Image.open(io.BytesIO(cover_data)).convert("RGB")
+                with open(cover_path, "wb") as f:
+                    f.write(cover_data)
+                logging.debug("wrote cover.jpg natively")
+            except Exception as e2:
+                logging.debug("cover data: %s", str(e2))
+                logging.critical("Invalid Cover Data Creating decoy JPG to download and go on")
+                img = Image.new("RGB", (1, 1), (255, 255, 255))
+                img.save(cover_path, "JPEG")
+                logging.debug("wrote cover.jpg using decoy file")
 
     genre_str = ", ".join(data["genres"])
 
