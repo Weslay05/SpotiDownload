@@ -1,3 +1,4 @@
+import sys
 import logging
 import os
 import io
@@ -280,7 +281,6 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     if CODEC == "opus":
         cmd = [ # TODO: Natively support libopus
             "ffmpeg",
-            "-n",
             "-i", wav_file,
             "-map", "0:a", 
             "-metadata", f"title={data['title']}",
@@ -295,7 +295,6 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     else:
         cmd = [
             "ffmpeg", 
-            "-n", # don't overwrite existing files
             "-i", wav_file, # input file
             "-i", cover_path, #cover
             "-map", "0", "-map", "1",
@@ -339,6 +338,15 @@ if __name__ == "__main__":
     tmp_file = "output/tmp_normalized.wav"
     tmp_cover = "output/tmp_cover_data.jpg"
 
+    if os.path.exists(input_file):
+        os.remove(input_file)
+        logging.warning("Overwriting tmp_downloaded file")
+    if os.path.exists(tmp_file):
+        os.remove(tmp_file)
+        logging.warning("Overwriting tmp_normalized file")
+    if os.path.exists(tmp_cover):
+        os.remove(tmp_cover)
+        logging.warning("Overwriting tmp_cover_data file")
 
     # Look if something is missing
     if not song and not youtube :
@@ -375,9 +383,10 @@ if __name__ == "__main__":
     if os.path.exists(final_file["path"]):
         print("file already exists")
         logging.info(
-            "File (%s) already exists, not overwriting it but program will go on because why not",
+            "File (%s) already exists, returning 0\n",
             final_file["path"]
         )
+        sys.exit(0)
 
     # Download Audio
     download_audio(input_file, youtube)
@@ -390,12 +399,13 @@ if __name__ == "__main__":
     embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
 
     # Compress Audio
-    if final_file["compress"] is True:
+    if os.path.exists(final_file["path"]):
+        logging.warning("'%s' already exists: skipping compression", final_file["path"])
+    elif final_file["compress"] is True:
         SAVE_LOCATION = "output/compressed (ohio-impressed)"
         Path(SAVE_LOCATION).mkdir(exist_ok=True)
         cmd = [
             "ffmpeg",
-            "-n",
             "-i", final_file["path"],
             "-c:a", final_file["codec"], "-b:a", final_file["bitrate"],
             f"{SAVE_LOCATION}/{opt_filename}.{final_file["container"]}"
