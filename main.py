@@ -312,12 +312,30 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     subprocess.run(cmd, check=False)
     logging.debug("embedding metadata done")
 
+def compress_audio(file: dict, output_path: str, ):
+    if os.path.exists(file["path"]):
+        if os.path.exists(output_path):
+            logging.info("'%s' already exists: overwriting it", output_path)
+            os.remove(output_path)
+    else:
+        logging.critical("'%s' doesn't exist: skipping compression", file["path"])
+        return 1
+    cmd = [
+        "ffmpeg",
+        "-i", file["path"],
+        "-c:a", file["codec"], "-b:a", file["bitrate"],
+        output_path
+    ]
+    subprocess.run(cmd, check=False)
+    return 0
 
 if __name__ == "__main__":
     # Argument Parser
     parser = argparse.ArgumentParser(description="Spotify ↔ YouTube helper")
     parser.add_argument("--song", default="", help="Search for ...")
     parser.add_argument("--youtube", default="", help="YouTube video URL")
+    # TODO: Custom cover
+    # TODO: Explicit Mode / Custom Filename
     args = parser.parse_args()
 
     # Main Variables
@@ -337,6 +355,7 @@ if __name__ == "__main__":
     input_file = "output/tmp_downloaded.wav"
     tmp_file = "output/tmp_normalized.wav"
     tmp_cover = "output/tmp_cover_data.jpg"
+    COMPRESSION_OPT_PATH = "output/compressed (ohio-impressed)"
 
     if os.path.exists(input_file):
         os.remove(input_file)
@@ -355,7 +374,7 @@ if __name__ == "__main__":
         if song and youtube:
             song_data = sanitize_filename(song)
             METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
-            filename_data = sanitize_filename(f"{METADATA["title"]} - {METADATA["artist"]}")
+            filename_data = sanitize_filename(f"{METADATA['title']} - {METADATA['artist']}")
             opt_filename: str = f"{filename_data['title']} - {filename_data['artist']}"
             logging.info("Song name is: (%s)", song)
             logging.info("Youtube_URL is: (%s)", youtube)
@@ -365,13 +384,10 @@ if __name__ == "__main__":
         if not youtube:
             song_data = sanitize_filename(song)
             METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
-            filename_data = sanitize_filename(f"{METADATA["title"]} - {METADATA["artist"]}")
+            filename_data = sanitize_filename(f"{METADATA['title']} - {METADATA['artist']}")
             opt_filename: str = f"{filename_data['title']} - {filename_data['artist']}"
-            youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, METADATA)
-            logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
 
     # Correct File Name
-
     Path("output").mkdir(exist_ok=True)
     final_file = {
         "path": f"output/{opt_filename}.flac",
@@ -380,45 +396,50 @@ if __name__ == "__main__":
         "container": "opus",
         "bitrate": "128k"
     }
+    FILE_COMPRESSED = f"{COMPRESSION_OPT_PATH}/{opt_filename}.{final_file["container"]}"
+
+    # Check if files are already there
     if os.path.exists(final_file["path"]):
-        print("file already exists")
-        logging.info(
-            "File (%s) already exists, returning 0\n",
-            final_file["path"]
-        )
-        sys.exit(0)
+        if final_file['compress'] is True:
+            print(f"`{final_file['path']}` already exists & compression activated: skipping to compression")
+            logging.info("File (%s) already exists", final_file["path"])
+        else:
+            print(f"`{final_file['path']}` already exists & compression deactivated: closing")
+            logging.info("File (%s) already exists & compression deactivated: skipping\n", final_file["path"])
+            sys.exit(0)
+    else:
+        # Download Audio
+        youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, METADATA)
+        logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
+        download_audio(input_file, youtube)
 
-    # Download Audio
-    download_audio(input_file, youtube)
+        # Normalize Loudness of Audio
+        measured = analyze_audio(input_file)
+        normalize_audio(input_file, tmp_file, measured)
 
-    # Normalize Loudness of Audio
-    measured = analyze_audio(input_file)
-    normalize_audio(input_file, tmp_file, measured)
+        # Metadata
+        embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
 
-    # Metadata
-    embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
+        # Delete Temp Files
+        logging.debug("removing temp files")
+        os.remove(tmp_file)
+        os.remove(input_file)
+        os.remove(tmp_cover)
 
     # Compress Audio
-    if os.path.exists(final_file["path"]):
-        logging.warning("'%s' already exists: skipping compression", final_file["path"])
-    elif final_file["compress"] is True:
-        SAVE_LOCATION = "output/compressed (ohio-impressed)"
-        Path(SAVE_LOCATION).mkdir(exist_ok=True)
-        cmd = [
-            "ffmpeg",
-            "-i", final_file["path"],
-            "-c:a", final_file["codec"], "-b:a", final_file["bitrate"],
-            f"{SAVE_LOCATION}/{opt_filename}.{final_file["container"]}"
-        ]
-        subprocess.run(cmd, check=False)
+    if final_file['compress'] is True:
+        if os.path.exists(final_file["path"]):
+            Path(COMPRESSION_OPT_PATH).mkdir(exist_ok=True)
+            compress_audio(final_file, FILE_COMPRESSED)
+            # os.remove(final_file["path"]) # Delete large file
+            print(f"✅ Compressed to: '{FILE_COMPRESSED}'")
+            logging.info("✅ Compressed to: '(%s)'\n", FILE_COMPRESSED)
+        else:
+            logging.critical("%s was never written", final_file["path"])
+            sys.exit(1)
+    else:
+        logging.info("Compression deactivated: skipping")
 
-    # Delete Temp Files
-    os.remove(tmp_file)
-    os.remove(input_file)
-    os.remove(tmp_cover)
-    # if final_file["compress"] is True:
-    #     os.remove(final_file["path"])
-    logging.debug("removing temp files")
-
-    print(f"✅ Done! Final file saved as {final_file["path"]}")
-    logging.info("Done! Final file saved as (%s)\n", final_file["path"])
+    print(f"✅ `{final_file["path"]}`")
+    logging.info("✅ `(%s)`\n", final_file["path"])
+    sys.exit(0)
