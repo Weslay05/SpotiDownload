@@ -395,6 +395,7 @@ if __name__ == "__main__":
         Path(SAVE_LOCATION).mkdir(exist_ok=True)
         cmd = [
             "ffmpeg",
+            "-n",
             "-i", final_file["path"],
             "-c:a", final_file["codec"], "-b:a", final_file["bitrate"],
             f"{SAVE_LOCATION}/{opt_filename}.{final_file["container"]}"
