@@ -1,5 +1,5 @@
 cd ../../
-call env/scripts/activate
+call ./env/scripts/activate.bat
 
 title SongDownloader
 
