@@ -377,6 +377,11 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         if song and youtube:
+            logging.info(
+                "... Processing: (%s) with (%s) ---",
+                song,
+                youtube
+            )
             song_data = sanitize_filename(song)
             METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
             filename_data = sanitize_filename(f"{METADATA['title']} - {METADATA['artist']}")
@@ -384,9 +389,11 @@ if __name__ == "__main__":
             logging.info("Song name is: (%s)", song)
             logging.info("Youtube_URL is: (%s)", youtube)
         if not song:
+            logging.info("... Processing: (%s)", youtube)
             # TODO: Derive song from youtube url
             logging.info("No Song name given, generated one is: (%s)", song)
         if not youtube:
+            logging.info("... Processing: (%s)", song)
             song_data = sanitize_filename(song)
             METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
             filename_data = sanitize_filename(f"{METADATA['title']} - {METADATA['artist']}")

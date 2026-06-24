@@ -1,3 +1,4 @@
+# FIXME: Entire loop
 cd ../../
 call ./env/scripts/activate.bat
 

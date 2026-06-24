@@ -1,9 +1,13 @@
-#! /usr/bin/bash
+#!/usr/bin/env bash
+
+# USAGE: script "path/to/python-env"
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-#source $HOME/miniconda3/etc/profile.d/conda.sh
-#conda activate $DIR/../../conda-debian
-export PATH="$DIR/../../conda-debian/bin":$PATH
+PYTHON_ENV = $1
+
 cd $DIR/../..
+source PYTHON_ENV/bin/activate
+pip install --upgrade -r "./requirements.txt"
 
 cmd="python playlist.py"
 
