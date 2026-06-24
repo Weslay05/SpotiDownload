@@ -201,7 +201,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
             except Exception as e:
                 logging.error("Error in %s: %s", query_type, str(e))
                 return []
-            
+
     # TODO: Youtube Music Search
     # # --- 1. Try YouTube Music ---
     # for entry in do_search("https://music.youtube.com/search?q=", search):
@@ -214,7 +214,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
     #     "YouTube Music failed, falling back to Youtube Search results for '%s'",
     #     search
     # )
-    
+
     #  --- 2. Fallback to YouTube Search---
     for entry in do_search("ytsearch", search):
         if entry.get("duration") is None:
@@ -227,7 +227,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
         "Youtube Search failed, falling back to YouTube Topic Search for '%s'",
         search
     )
-    
+
     #  --- 3. Fallback to YouTube Topic Video---
     for entry in do_search("ytsearch", f"{search} topic"):
         if entry.get("duration") is None:
@@ -240,7 +240,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
         "Youtube Topic Search failed, falling back to Youtube Lyrics Video for '%s'",
         search
     )
-    
+
     #  --- 4. Fallback to Youtube Lyrics Video---
     for entry in do_search("ytsearch", f"{search} AND lyrics"):
         if entry.get("duration") is None:
@@ -253,23 +253,23 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
         "Youtube Lyrics Video not found, falling back to first best result for '%s'",
         search
     )
-    
+
     # --- 5. As a last resort, return the first YouTube result ---
     youtube_entries = do_search("ytsearch", search)
     if youtube_entries:
         return youtube_entries[0]["webpage_url"]
-    
+
     # --- Error ---
     logging.warning("No youtube_url found for: (%s)", search)
     return None
 
 def get_metadata_spotify(track_url):
     track = sp.track(track_url)
-    
+
     # Get artist details
     artist_id = track["artists"][0]["id"]
     artist_data = sp.artist(artist_id)
-    
+
     json_metadata = {
         "title": track["name"],
         "artist": track["artists"][0]["name"],
@@ -301,10 +301,10 @@ def embed_metadata(wav_file, output_file, cover_path, data):
             img = Image.new("RGB", (1, 1), (255, 255, 255))
             img.save(cover_path, "JPEG")
             logging.critical("Created decoy JPG just to download and go on")
-        
-        
+
+
     genre_str = ", ".join(data["genres"])
-    
+
     CODEC: str = output_file.rsplit(".", 1)[-1]
     if CODEC == "opus":
         cmd = [ # TODO: Natively support libopus
@@ -360,9 +360,7 @@ def compress_audio(file: dict, output_path: str):
 def check_filepaths(file_path: str, compression_arg: bool):
     if os.path.exists(file_path):
         if compression_arg is True:
-            logging.info("File '%s' already exists & compression activated: skipping to compression", file_path)
             return 2
-        logging.info("File '%s' already exists & compression deactivated: closing\n", file_path)
         return 1
     else:
         return 0
@@ -446,9 +444,10 @@ if __name__ == "__main__":
 
     match check_filepaths(final_file["path"], final_file["compress"]):
         case 1: # All files already there
+            logging.info("File '%s' already exists & compression deactivated: closing\n", final_file["path"])
             sys.exit(0)
         case 2: # Skipping to compression
-            pass
+            logging.info("File '%s' already exists & compression activated: skipping to compression", final_file["path"])
         case 0: # No initial file there, downloading audio
             if not youtube: # Fetch Youtube URL
                 # QUERY = f"{METADATA['title']} - {METADATA['artist']}"
@@ -466,9 +465,10 @@ if __name__ == "__main__":
                     # Running loop again
                     match check_filepaths(final_file["path"], final_file["compress"]):
                         case 1: # All files already there
+                            logging.info("File '%s' already exists & compression deactivated: closing\n", final_file["path"])
                             sys.exit(0)
                         case 2: # Skipping to compression
-                            pass
+                            logging.info("File '%s' already exists & compression activated: skipping to compression", final_file["path"])
                         case 0: # No initial file there, downloading audio
                             logging.critical("Fetching Youtube_URL failed, falling back to user input query: '%s'", QUERY)
                             youtube = get_youtube_link(QUERY, tolerance_sec, max_results_ytsearch, METADATA)
