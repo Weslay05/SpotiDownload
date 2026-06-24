@@ -1,13 +1,14 @@
 cd ../../
-call activate ./conda-debian
+call env/scripts/activate
 
-title Spotify Downloader Batch
+title SongDownloader
 
 REM Loop through each line in tracks.txt
-for /f "usebackq delims=" %%a in ("assets/tracks.txt") do (
-    echo Processing %%a
-    python main.py --spotify "%%a"
-)
+powershell -NoProfile -Command ^
+    "Get-Content -Encoding UTF8 assets/tracks.txt | ForEach-Object { ^
+        Write-Host ('Processing ' + $_); ^
+        python main.py --song $_ ^
+    }"
 
 echo done
 pause

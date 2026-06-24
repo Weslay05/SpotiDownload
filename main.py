@@ -8,13 +8,19 @@ import requests
 from yt_dlp import YoutubeDL
 import sys
 import musicbrainzngs
+# from PIL import Image
+import io
+from pathlib import Path
 
 # Initialize the client with a descriptive user-agent string
 musicbrainzngs.set_useragent("SpotiDownloader", "2.0", "contact@example.com")
 
 # Configure logging
+if not Path("assets/song_downloader.log").exists():
+    Path("assets").mkdir(exist_ok=True)
+    Path("assets/song_downloader.log").write_text("", "UTF-8")
 logging.basicConfig(
-    filename="assets/spotify_youtube.log",     # log file name
+    filename="assets/song_downloader.log",     # log file name
     filemode="a",
     encoding="utf-8",
     level=logging.INFO,                 # log level: DEBUG, INFO, WARNING, ERROR
@@ -55,7 +61,8 @@ def get_metadata_musicbrainz(title: str, artist: str):
     if metadata["release_id"]:
         metadata["cover_url"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front" # TODO: Natively download Image
     else:
-        metadata["cover_url"] = None
+        metadata["cover_url"] = 'https://None'
+        logging.warning(f"No Song Cover found using `{metadata['release_id']}` return: {metadata["cover_url"]}")
         
     return metadata
 
@@ -81,7 +88,7 @@ def sanitize_filename(song_artists: str):
     #return f'{song_name} - {artists}'
     SONG_ARTIST = {
         "title": song_name,
-        "artist": artist
+        "artist": artists
     }
     return SONG_ARTIST
 
@@ -250,25 +257,46 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     with open(cover_path, "wb") as f:
         f.write(cover_data)
         logging.debug("wrote cover.jpg")
+    # TODO: lighter jpg than native
+    # img = Image.open(io.BytesIO(cover_data)).convert("RGB")
+    # img.save(cover_path, format="JPEG", quality=80)
+    # logging.debug("wrote cover.jpg")
         
     genre_str = ", ".join(data["genres"])
     
-    cmd = [
-        "ffmpeg", 
-        "-n", # don't overwrite existing files
-        "-i", wav_file, # input file
-        "-i", cover_path, #cover
-        "-map", "0", "-map", "1",
-        #"-acodec", "flac",
-        #"-compression_level", "8",
-        "-metadata", f"title={data['title']}",
-        "-metadata", f"artist={data['artist']}",
-        "-metadata", f"album={data['album']}",
-        "-metadata", f"date={data['date']}",
-        "-metadata", f"genre={genre_str}",
-        "-disposition:v", "attached_pic",
-        output_file
-    ]
+    CODEC: str = output_file.rsplit(".", 1)[-1]
+    if CODEC == "opus":
+        cmd = [ # TODO: Natively support libopus
+            "ffmpeg",
+            "-n",
+            "-i", wav_file,
+            "-map", "0:a", 
+            "-metadata", f"title={data['title']}",
+            "-metadata", f"artist={data['artist']}",
+            "-metadata", f"album={data['album']}",
+            "-metadata", f"date={data['date']}",
+            "-metadata", f"genre={genre_str}",
+            "-metadata", cover_path,
+            "-c:a", "libopus", "-b:a", "128k",
+            output_file
+        ]
+    else:
+        cmd = [
+            "ffmpeg", 
+            "-n", # don't overwrite existing files
+            "-i", wav_file, # input file
+            "-i", cover_path, #cover
+            "-map", "0", "-map", "1",
+            #"-acodec", "flac",
+            #"-compression_level", "8",
+            "-metadata", f"title={data['title']}",
+            "-metadata", f"artist={data['artist']}",
+            "-metadata", f"album={data['album']}",
+            "-metadata", f"date={data['date']}",
+            "-metadata", f"genre={genre_str}",
+            "-disposition:v", "attached_pic",
+            output_file
+        ]
     logging.debug("embedding metadata")
     subprocess.run(cmd, check=False)
     logging.debug("embedding metadata done")
@@ -312,20 +340,28 @@ if __name__ == "__main__":
             logging.info("No Song name given, generated one is: (%s)", song)
         if not youtube:
             SONG_DATA = sanitize_filename(song)
-            formatted_name = f"{SONG_DATA['title']} - {SONG_DATA['artist']}"
-            metadata = get_metadata_musicbrainz(SONG_DATA['title'], SONG_DATA['artist'])
-            youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, metadata) # TODO: Maybe change song -> formatted_name
+            SONG_TITLE_ARTIST = f"{SONG_DATA['title']} - {SONG_DATA['artist']}"
+            METADATA = get_metadata_musicbrainz(SONG_DATA['title'], SONG_DATA['artist'])
+            youtube = get_youtube_link(song, tolerance_sec, max_results_ytsearch, METADATA) # TODO: Maybe change song -> SONG_TITLE_ARTIST
             logging.info("No Youtube_URL name given, generated one is: (%s)", youtube)
             
     # Correct File Name
-    final_file = f"output/{formatted_name}.flac"
-    if os.path.exists(final_file):
+    
+    Path("output").mkdir(exist_ok=True)
+    final_file = {
+        "path": f"output/{SONG_TITLE_ARTIST}.flac",
+        "compress": True,
+        "codec": "libopus",
+        "container": "opus",
+        "bitrate": "128k"
+    }
+    if os.path.exists(final_file["path"]):
         print("file already exists")
         logging.info(
             "File (%s) already exists, not overwriting it but program will go on because why not",
-            final_file
+            final_file["path"]
         )
-
+        
     # Download Audio
     download_audio(input_file, youtube)
     
@@ -334,14 +370,27 @@ if __name__ == "__main__":
     normalize_audio(input_file, tmp_file, measured)
     
     # Metadata
-    embed_metadata(tmp_file, final_file, tmp_cover, metadata)
+    embed_metadata(tmp_file, final_file["path"], tmp_cover, METADATA)
+    
+    # Compress Audio
+    if final_file["compress"] is True:
+        SAVE_LOCATION = "output/compressed (ohio-impressed)"
+        Path(SAVE_LOCATION).mkdir(exist_ok=True)
+        cmd = [
+            "ffmpeg",
+            "-i", final_file["path"],
+            "-c:a", final_file["codec"], "-b:a", final_file["bitrate"],
+            f"{SAVE_LOCATION}/{SONG_TITLE_ARTIST}.{final_file["container"]}"
+        ]
+        subprocess.run(cmd, check=False)
     
     # Delete Temp Files
     os.remove(tmp_file)
     os.remove(input_file)
     os.remove(tmp_cover)
+    # if final_file["compress"] is True:
+    #     os.remove(final_file["path"])
     logging.debug("removing temp files")
 
-
-    print(f"✅ Done! Final file saved as {final_file}")
-    logging.info("Done! Final file saved as (%s)\n", final_file)
+    print(f"✅ Done! Final file saved as {final_file["path"]}")
+    logging.info("Done! Final file saved as (%s)\n", final_file["path"])

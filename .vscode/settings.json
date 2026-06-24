@@ -8,6 +8,7 @@
         "csvfile",
         "flac",
         "levelname",
+        "libopus",
         "loudnorm",
         "musicbrainzngs",
         "noplaylist",
