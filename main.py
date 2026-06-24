@@ -374,6 +374,7 @@ if __name__ == "__main__":
     # Look if something is missing
     if not song and not youtube :
         print('No Song name or Youtube URL')
+        sys.exit(1)
     else:
         if song and youtube:
             song_data = sanitize_filename(song)
