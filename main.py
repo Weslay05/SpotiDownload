@@ -74,7 +74,7 @@ def get_metadata_musicbrainz(title: str, artist: str):
 def sanitize_filename(song_artists: str):
     # Split song and artist
     if ' - ' in song_artists:
-        song_name, artists = song_artists.split(' - ', 1)
+        song_name, artists = song_artists.rsplit(' - ', 1)
     else:
         # If no ' - ', treat the whole string as song name
         song_name = song_artists
