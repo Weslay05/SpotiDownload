@@ -59,7 +59,7 @@ def get_metadata_musicbrainz(title: str, artist: str):
     if not result['recording-list']:
         return None
         
-    track = result['recording-list'][0]
+    track = result['recording-list'][0] # TODO: Improve search
     
     # Process systematic variables
     GENRES = [
@@ -301,7 +301,7 @@ def embed_metadata(wav_file, output_file, cover_path, data):
             logging.debug("cover data: %s", str(e))
             logging.warning("Invalid Cover Data falling back secondary cover")
             cover_data = requests.get(data["cover_url_fallback"]).content
-            try:
+            try: # TODO: Add another API as fallback instead of other url
                 img = Image.open(io.BytesIO(cover_data)).convert("RGB")
                 with open(cover_path, "wb") as f:
                     f.write(cover_data)
@@ -380,7 +380,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Spotify ↔ YouTube helper")
     parser.add_argument("--song", default="", help="Search for ...")
     parser.add_argument("--youtube", default="", help="YouTube video URL")
-    # TODO: Custom cover
+    parser.add_argument("--cover", default="", help="Cover URL (JPG preferred)")
     # TODO: Explicit Mode / Custom Filename
     args = parser.parse_args()
 
@@ -398,6 +398,7 @@ if __name__ == "__main__":
     # Secondary Variables
     tolerance_sec = 2
     max_results_ytsearch = 10
+    # TODO: specific tmp files for parallel works
     input_file = "output/tmp_downloaded.wav"
     tmp_file = "output/tmp_normalized.wav"
     tmp_cover = "output/tmp_cover_data.jpg"
@@ -413,7 +414,7 @@ if __name__ == "__main__":
         os.remove(tmp_cover)
         logging.warning("Overwriting tmp_cover_data file")
 
-    # Look if something is missing
+    # Validate Important Args
     if not song and not youtube :
         logging.error("No Song name or Youtube URL\n")
         sys.exit(1)
@@ -440,6 +441,11 @@ if __name__ == "__main__":
             METADATA = get_metadata_musicbrainz(song_data['title'], song_data['artist'])
             filename_data = sanitize_filename(f"{METADATA['title']} - {METADATA['artist']}")
             opt_filename: str = f"{filename_data['title']} - {filename_data['artist']}"
+            
+    # smaller optional args
+    if args.cover:
+        logging.info("Cover_URL is: (%s)", args.cover)
+        METADATA['cover_url'] = args.cover
 
     # Correct File Name
     Path("output").mkdir(exist_ok=True)
