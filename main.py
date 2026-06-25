@@ -1,9 +1,11 @@
+import random
 import sys
 import logging
 import colorlog
 import os
 import io
 import json
+import time
 import re
 import argparse
 import subprocess
@@ -142,13 +144,14 @@ def download_audio(file, url):
             logging.debug("ERROR while downloading: %s", str(e))
             logging.info("Couldn't download (%s), trying again...", url)
             try:
+                time.sleep(random.uniform(0.93, 2.84))
                 ydl.download([url])
                 logging.info("Trying to download (%s) again succeeded", url)
                 return 0
             except Exception as e2:
                 logging.debug("ERROR while downloading: %s", str(e2))
-                logging.error("Download Failed for (%s)", url)
-                return 1
+                logging.error("Download Failed for (%s): quitting whole program\n", url)
+                sys.exit(1)
         logging.debug("Downloaded '%s'", url)
 
 def analyze_audio(file):
