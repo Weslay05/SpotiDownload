@@ -136,7 +136,19 @@ def download_audio(file, url):
     }   
     # download
     with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        try:
+            ydl.download([url])
+        except Exception as e:
+            logging.debug("ERROR while downloading: %s", str(e))
+            logging.info("Couldn't download (%s), trying again...", url)
+            try:
+                ydl.download([url])
+                logging.info("Trying to download (%s) again succeeded", url)
+                return 0
+            except Exception as e2:
+                logging.debug("ERROR while downloading: %s", str(e2))
+                logging.error("Download Failed for (%s)", url)
+                return 1
         logging.debug("Downloaded '%s'", url)
 
 def analyze_audio(file):
@@ -204,7 +216,7 @@ def get_youtube_link(search: str, tolerance_sec: int, max_results: int, metadata
                 info = ydl.extract_info(f"{query_type}{max_results}:{search_for}", download=False)
                 return info.get("entries", []) if info else []
             except Exception as e:
-                logging.error("Error in %s: %s", query_type, str(e))
+                logging.debug("Search failed for (%s): %s", query_type, str(e))
                 return []
 
     # TODO: Youtube Music Search
