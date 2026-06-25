@@ -54,7 +54,11 @@ logger.addHandler(handler) # add handler for color format
 logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
 def get_metadata_musicbrainz(title: str, artist: str):
     # Search for the recording
-    result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1) # artistname
+    if artist == "Unknown Artist":
+        logging.info("No Artist defined, searching using title only")
+        result = musicbrainzngs.search_recordings(recording=title, limit=1)
+    else:
+        result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1)
     
     if not result['recording-list']:
         return None
@@ -283,6 +287,7 @@ def get_metadata_spotify(track_url):
     return json_metadata
 
 def embed_metadata(wav_file, output_file, cover_path, data):
+    MAX_COVER_SIZE = 1024
     if data["cover_url"] == "https://None":
         cover_data = ""
         img = Image.new("RGB", (1, 1), (255, 255, 255))
@@ -292,10 +297,10 @@ def embed_metadata(wav_file, output_file, cover_path, data):
         cover_data = requests.get(data["cover_url"]).content
         try:
             img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-            with open(cover_path, "wb") as f:
-                f.write(cover_data)
-            # TODO: Make JPG lighter than native
-            # img.save(cover_path, format="JPEG", quality=70)
+            # with open(cover_path, "wb") as f:
+            #     f.write(cover_data)
+            img.thumbnail((MAX_COVER_SIZE, MAX_COVER_SIZE))
+            img.save(cover_path, format="JPEG", quality=80)
             logging.debug("wrote cover.jpg natively")
         except Exception as e:
             logging.debug("cover data: %s", str(e))
@@ -303,9 +308,11 @@ def embed_metadata(wav_file, output_file, cover_path, data):
             cover_data = requests.get(data["cover_url_fallback"]).content
             try: # TODO: Add another API as fallback instead of other url
                 img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-                with open(cover_path, "wb") as f:
-                    f.write(cover_data)
-                logging.debug("wrote cover.jpg natively")
+                #with open(cover_path, "wb") as f:
+                #    f.write(cover_data)
+                img.thumbnail((MAX_COVER_SIZE, MAX_COVER_SIZE))
+                img.save(cover_path, format="JPEG", quality=80)
+                logging.debug("wrote cover.jpg natively though had to use fallback")
             except Exception as e2:
                 logging.debug("cover data: %s", str(e2))
                 logging.critical("Invalid Cover Data Creating decoy JPG to download and go on")
@@ -380,7 +387,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Spotify ↔ YouTube helper")
     parser.add_argument("--song", default="", help="Search for ...")
     parser.add_argument("--youtube", default="", help="YouTube video URL")
-    parser.add_argument("--cover", default="", help="Cover URL (JPG preferred)")
+    parser.add_argument("--cover", default="", help="Cover URL")
     # TODO: Explicit Mode / Custom Filename
     args = parser.parse_args()
 
