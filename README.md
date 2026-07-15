@@ -5,6 +5,13 @@ Downloads Songs from youtube using metadata from third party sites.
 ## Requirements
 
 - ffmpeg
+- opus-tools (opusenc)
+
+Windows Installation
+
+```powershell
+winget install --silent -e --id="Mozilla.opus-tools" --id="Gyan.FFmpeg"
+```
 
 ## Usage: `main.py`
 

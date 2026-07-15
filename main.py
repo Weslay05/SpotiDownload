@@ -18,6 +18,7 @@ import musicbrainzngs
 
 # Initialize the client with a descriptive user-agent string
 musicbrainzngs.set_useragent("SongDownloader", "2.0", "contact@example.com")
+OPUS_FINAL_FILE_BITRATE: str = "128" # kbp/s
 
 # Configure logging
 if not Path("assets/song_downloader.log").exists():
@@ -312,8 +313,8 @@ def embed_metadata(wav_file, output_file, cover_path, data):
         cover_data = requests.get(data["cover_url"]).content
         try:
             img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-            # with open(cover_path, "wb") as f:
-            #     f.write(cover_data)
+            #with open(cover_path, "wb") as f:
+            #    f.write(cover_data)
             img.thumbnail((MAX_COVER_SIZE, MAX_COVER_SIZE))
             img.save(cover_path, format="JPEG", quality=80)
             logging.debug("wrote cover.jpg natively")
@@ -338,28 +339,32 @@ def embed_metadata(wav_file, output_file, cover_path, data):
     genre_str = ", ".join(data["genres"])
 
     CODEC: str = output_file.rsplit(".", 1)[-1]
-    if CODEC == "opus":
-        cmd = [ # TODO: Natively support libopus
-            "ffmpeg",
-            "-i", wav_file,
-            "-map", "0:a", 
-            "-metadata", f"title={data['title']}",
-            "-metadata", f"artist={data['artist']}",
-            "-metadata", f"album={data['album']}",
-            "-metadata", f"date={data['date']}",
-            "-metadata", f"genre={genre_str}",
-            "-metadata", cover_path,
-            "-c:a", "libopus", "-b:a", "128k",
-            output_file
+    # clean_album: str = "".join(ch for ch in data['album'] if ch.isprintable()).strip()
+    if CODEC == "opus" or CODEC == "libopus":
+        cmd = [
+            "opusenc",
+            "--bitrate", OPUS_FINAL_FILE_BITRATE, "--vbr",
+            "--title", f"{data['title']}",
+            "--artist", f"{data['artist']}",
+            "--album", f"{data['album']}",
+            "--date", f"{data['date']}",
+            "--genre", f"{genre_str}",
+            "--picture", f"3||Front Cover||{cover_path}",
+            wav_file, f"{output_file.rsplit('.', 1)[0]}.opus"
         ]
     else:
+        if CODEC == "flac":
+            pass
+        else:
+            logging.warning("Codec not tested: falling back to ffmpeg auto conversion.")
         cmd = [
             "ffmpeg", 
-            "-i", wav_file, # input file
-            "-i", cover_path, #cover
-            "-map", "0", "-map", "1",
-            #"-acodec", "flac",
-            #"-compression_level", "8",
+            "-i", wav_file, "-i", cover_path,
+            "-map", "0:a", "-map", "1:v",
+            "-id3v2_version", "3",
+            "-metadata:s:v", 'title="Album cover"',
+            "-metadata:s:v", 'comment="Cover (Front)"',
+            "-metadata:s:v:0", 'description="Front Cover"',
             "-metadata", f"title={data['title']}",
             "-metadata", f"artist={data['artist']}",
             "-metadata", f"album={data['album']}",
@@ -380,12 +385,37 @@ def compress_audio(file: dict, output_path: str):
     else:
         logging.error("'%s' doesn't exist: skipping compression", file["path"])
         return 1
-    cmd = [
-        "ffmpeg",
-        "-i", file["path"],
-        "-c:a", file["codec"], "-b:a", file["bitrate"],
-        output_path
-    ]
+    
+    # Set Encoder
+    if output_path.rsplit(".", 1)[-1] == "opus":
+        encoder: str = "opusenc" # Options [ "opusenc", "ffmpeg-opus" ] # FIXME: ffmpeg-opus has no cover
+    else:
+        encoder: str = "ffmpeg" # Options [ "opusenc", "ffmpeg", "ffmpeg-opus" ]
+    # Encoding
+    if encoder == "opusenc":
+        cmd = [
+            "opusenc",
+            "--bitrate", file["bitrate"], "--vbr",
+            file["path"], output_path
+        ]
+    elif encoder == "ffmpeg-opus":
+        cmd = [
+            "ffmpeg",
+            "-i", file["path"],
+            "-c:a", file["codec"], "-b:a",
+            file["bitrate"], output_path
+        ]
+    else:
+        cmd = [
+            "ffmpeg",
+            "-i", file["path"],
+            #"-map", "0:a", "-map", "0:v",
+            "-c:a", file["codec"],
+            "-b:a", file["bitrate"],
+            "-c:v", "copy",# mjpeg
+            #"-disposition:v", "attached_pic",
+            output_path
+        ]
     subprocess.run(cmd, check=False)
     return 0
 
@@ -467,17 +497,24 @@ if __name__ == "__main__":
     # smaller optional args
     if args.cover:
         logging.info("Cover_URL is: (%s)", args.cover)
-        METADATA['cover_url'] = args.cover
+        METADATA['cover_url'] = f"{args.cover}"
 
     # Correct File Name
     Path("output").mkdir(exist_ok=True)
     final_file = {
-        "path": f"output/{opt_filename}.flac",
-        "compress": True,
+        "path": f"output/{opt_filename}.opus",
+        # Next Options are only for the Compressed file and not for the actual final file output
+        "compress": False,
         "codec": "libopus",
         "container": "opus",
         "bitrate": "128k"
     }
+    #final_file_compressed = {
+    #    "compress": False,
+    #    "codec": "libopus",
+    #    "container": "opus",
+    #    "bitrate": "128k"
+    #}
     FILE_COMPRESSED = f"{COMPRESSION_OPT_PATH}/{opt_filename}.{final_file["container"]}"
 
     match check_filepaths(final_file["path"], final_file["compress"]):
@@ -532,11 +569,15 @@ if __name__ == "__main__":
     if check_filepaths(final_file["path"], final_file["compress"]) == 0:
         logging.error("`%s` was never written\n", final_file["path"])
         sys.exit(1)
-    else:
+    elif final_file["compress"] is True:
         Path(COMPRESSION_OPT_PATH).mkdir(exist_ok=True)
         compress_audio(final_file, FILE_COMPRESSED)
         # os.remove(final_file["path"]) # Delete large file
         logging.info("✅ Compressed: '%s'", FILE_COMPRESSED)
+    elif final_file["compress"] is False:
+        logging.info("Compression Deactivated: Skipping")
+    else:
+        logging.error("something at compress audio went wrong, though not sure what")
 
     logging.info("✅ Downloaded: '%s'\n", final_file["path"])
     sys.exit(0)
