@@ -40,12 +40,12 @@ xargs -I {} python main.py --song {} < assets/tracks.txt
 
 ### Useful Hacks
 
-**Windows** convert `output/*.flac` -> `output/compresssed (ohio-impressed mp3-version)/*.mp3` *(cd into `output`)*
+**Windows** convert `output/*` -> `output/compresssed (ohio-impressed mp3-version)/*.mp3` *(cd into `output`)*
 
 ```powershell
 New-Item -ItemType Directory -Force -Path ".\compresssed (ohio-impressed mp3-version)" | Out-Null
 
-Get-ChildItem -Path . -Filter *.flac | ForEach-Object {
+Get-ChildItem -Path . | ForEach-Object {
     $output_file = Join-Path ".\compresssed (ohio-impressed mp3-version)" ($_.BaseName)
 
     Write-Host "Converting $($_.Name)"
