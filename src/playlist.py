@@ -3,7 +3,7 @@ import csv
 import os
 import platform
 
-# --- CONFIG ---
+# --- CONFIG --- # TODO: Use .env file for this
 OUTPUT_M3U = "assets/playlist.m3u"
 
 # Column name from the CSV for song title (depends on export)

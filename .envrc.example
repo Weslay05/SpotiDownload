@@ -1,0 +1,8 @@
+# Nix Shell Initialization
+if [[ $name ]]; then
+    export PROMPT='(${name%-shell*-env}) %(?:%{%}%1{➜%} :%{%}%1{➜%} ) %{%}%c%{%} $(git_prompt_info)'
+    echo "Nix FHS Environment already active"
+else
+    layout python # Init Python venv / #! Doesn't work with Flake
+    #use flake
+fi
