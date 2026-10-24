@@ -26,6 +26,12 @@
                 ps.virtualenv
                 ps.uv
                 ps.pip
+                # Project dependencies from requirements.txt
+                ps.requests
+                ps.yt-dlp
+                ps.musicbrainzngs
+                ps.pillow
+                ps.colorlog
               ]))
               
               # Dependencies
