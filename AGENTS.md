@@ -21,6 +21,8 @@ Right now `.env` is pretty useless, but could get useful later.
 
 ## Instructions
 
+While you work, please always check if the program is working after changes, don't blindly change things without confirming you didn't break anything or added bugs, review your changes after your done.
+
 `AGENTS.md` is information about the project that isn't found as easily or just useful things for AI/Agents.
 `CHANGES.md` should contain everything uncommitted/changed/added/removed and so on.
 `TODO.md` is pretty useful for future TODO's but also for current ones
