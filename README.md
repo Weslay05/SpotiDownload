@@ -1,54 +1,113 @@
-# Song Downloader
+# SpotiDownload
 
-Downloads Songs from youtube using metadata from third party sites.
+Downloads songs from YouTube using metadata from third-party sources.
 
-## Requirements
+## Quick Start
 
-- ffmpeg
-- opus-tools (opusenc)
+### Standard Installation (All Systems)
 
-Windows Installation
+```bash
+cd /path/to/project
+pip install --upgrade -r requirements.txt
+python src/main.py "artist song"
+```
+
+### NixOS / Recommended Development Environment
+
+```bash
+nix develop
+python src/main.py "artist song"
+# No pip install needed! All dependencies included.
+```
+
+## System Requirements
+
+- **ffmpeg** (system package) - Audio/video processing
+- **opus-tools/opusenc** (system package) - Opus format handling
+
+### Windows Setup
 
 ```powershell
 winget install --silent -e --id="Mozilla.opus-tools" --id="Gyan.FFmpeg"
 ```
 
-## Usage: `main.py`
+## Usage
 
-1. Cd into project root
-2. Activate Python environment
-3. update/install requirements `pip install --upgrade -r requirements.txt`
+### Basic Command
 
-Either run `python main.py` directly with arguments like `--song` or
+```bash
+python src/main.py "song name - artist" # Works better with the dash
+```
 
-If `assets/tracks.txt` should be used
+Arguments:
 
-**Windows** Example
+- Search query (required)
+- Additional flags as supported by the script
 
-```pwsh
-Get-Content assets\tracks.txt | ForEach-Object {
-    Write-Host "Processing $_"
-    python main.py --song $_
+### Batch Processing from `assets/tracks.txt`
+
+**Windows Example:**
+
+```powershell
+Get-Content -LiteralPath 'assets\tracks.txt' | ForEach-Object {
+    $song = $_.Trim()
+    if ($song) {
+        Write-Host "Processing $song"
+        & python 'src/main.py' --song "$song"
+    }
 }
 ```
 
-**Linux** Example
+**Linux/Mac Example:**
 
 ```bash
-xargs -I {} python main.py --song {} < assets/tracks.txt
+xargs -I {} python src/main.py --song {} < assets/tracks.txt
 ```
 
-### Useful Hacks
+---
 
-**Windows** convert `output/*` -> `output/compresssed (ohio-impressed mp3-version)/*.mp3` *(cd into `output`)*
+## Development with Nix (Recommended)
+
+The project includes a `flake.nix` for reproducible development environments.
+
+### Features
+
+- ✅ Zero setup - all Python packages pre-installed
+- ✅ Cross-platform (x86_64, ARM64, etc.)
+- ✅ Includes system dependencies (ffmpeg, opus-tools)
+- ✅ Isolates environment from host system
+
+### Usage on NixOS/Nix
+
+```bash
+# Start development shell
+nix develop
+
+# Run the application
+python src/main.py "artist song"
+
+# Access tools installed in flake.nix
+uv --version        # Python package manager
+direnv allow        # Environment variable management
+```
+
+**Note:** When using `nix develop`, `requirements.txt` aren't needed anymore, since it already contains all requirements.
+
+## Output Directory
+
+Processed songs are saved to `output/`.
+
+### Post-Processing Tip (Windows)
+
+Compress all downloaded files (**OPUS, FLAC**) into an organized folder:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path ".\compresssed (ohio-impressed mp3-version)" | Out-Null
+$outDir = Join-Path $PWD 'output/compressed-ohio-impressed/'
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-Get-ChildItem -Path . | ForEach-Object {
-    $output_file = Join-Path ".\compresssed (ohio-impressed mp3-version)" ($_.BaseName)
-
+Get-ChildItem -File | Where-Object { $_.Extension -in '.opus', '.flac' } | ForEach-Object {
+    $outFile = Join-Path $outDir ($_.BaseName + '.mp3')
     Write-Host "Converting $($_.Name)"
-    ffmpeg -i $_ -codec:a libmp3lame -q:a 2 "${output_file}.mp3"
+    ffmpeg -i $_.FullName -codec:a libmp3lame -q:a 2 $outFile
 }
 ```

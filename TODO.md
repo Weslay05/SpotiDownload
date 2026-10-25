@@ -47,6 +47,24 @@ requirements.txt
 
 - Make main.py more readable by splitting it into classes
 
+### Splitting `main.py` Into Classes
+
+When refactoring, create these logical classes with clear responsibilities:
+
+**MetadataFetcher** (`src/fetchers/base.py`)
+- Abstract base class for metadata sources
+- Concrete implementations: `MusicBrainzFetcher`, `YouTubeInfoFetcher`, `SpotifyFetcher`
+- Standard interface: `.fetch_metadata(title, artist)` returning a unified dict
+
+**AudioProcessor** (`src/processors/audio.py`)
+- Methods: `analyze_loudnorm(wav)`, `normalize_audio(input, output, settings)`, `compress(audio_path, format)`
+- Handle temp file management internally (create → process → cleanup)
+
+**FileHandler** (`src/utils/files.py`)
+- `.sanitize_filename(name)` - returns dict with title/artist keys
+- `.check_paths(exist_ok=False)` - returns 0/1/2 status codes
+- `.ensure_dir(path)` - creates directories if missing
+
 ### TODO: Better Fallback & Loops
 
 - Make Loops more useful and include a fallback variabe for many.
