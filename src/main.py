@@ -10,15 +10,15 @@ import re
 import argparse
 import subprocess
 from pathlib import Path
+from dotenv import load_dotenv
 
-from PIL import Image
-import requests
-from yt_dlp import YoutubeDL
-import musicbrainzngs
+import 
+
+
+load_dotenv()
 
 # Initialize the client with a descriptive user-agent string
-musicbrainzngs.set_useragent("SongDownloader", "2.0", "contact@example.com")
-OPUS_FINAL_FILE_BITRATE: str = "128" # kbp/s
+OPUS_FINAL_FILE_BITRATE = os.getenv('OPUS_BITRATE') # kbp/s
 
 # Configure logging
 if not Path("assets/song_downloader.log").exists():
@@ -53,55 +53,11 @@ handler = colorlog.StreamHandler() # Output to Terminal too
 handler.setFormatter(formatter)
 logger.addHandler(handler) # add handler for color format
 
+from handler.metadata import Metadata
+
+Metadata = Metadata(logger=logging)
 
 logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
-def get_metadata_musicbrainz(title: str, artist: str):
-    # Search for the recording
-    if artist == "Unknown Artist":
-        logging.info("No Artist defined, searching using title only")
-        result = musicbrainzngs.search_recordings(recording=title, limit=1)
-    else:
-        result = musicbrainzngs.search_recordings(artist=artist, recording=title, limit=1)
-    
-    if not result['recording-list']:
-        return None
-        
-    track = result['recording-list'][0] # TODO: Improve search
-    
-    # Process systematic variables
-    GENRES = [
-        g["name"]
-        for g in track.get("genre-list", [])
-        if "name" in g
-    ]
-    if not GENRES:
-        GENRES = [
-            t["name"]
-            for t in track.get("tag-list", [])
-            if "name" in t
-        ]
-    metadata = {
-        "title": track.get("title"),
-        "artist": track.get("artist-credit", [{}])[0].get("artist", {}).get("name"),
-        "duration_ms": int(track.get("length", 0)),  # Duration in milliseconds
-        "release_id": track.get("release-list", [{}])[0].get("id"),
-        "album": track.get("release-list", [{}])[0].get("title"),
-        "date": track.get("release-list", [{}])[0].get("date"),
-        "genres": GENRES
-    }
-    # Fetch cover art URL if a release ID exists
-    if metadata["release_id"]:
-        metadata["cover_url"] = f"https://coverartarchive.org/release/{metadata['release_id']}/front" # TODO: Natively download Image
-        metadata["cover_url_fallback"] = f"https://coverartarchive.org/release-group/{metadata['release_id']}/front" # TODO: Natively download Image
-    else:
-        metadata["cover_url"] = 'https://None'
-        logging.critical(
-            "No Song Cover found using '%s' return: '%s'",
-            metadata['release_id'],
-            metadata["cover_url"]
-        )
-        
-    return metadata
 
 def sanitize_filename(song_artists: str):
     # Split song and artist
@@ -502,19 +458,12 @@ if __name__ == "__main__":
     # Correct File Name
     Path("output").mkdir(exist_ok=True)
     final_file = {
-        "path": f"output/{opt_filename}.opus",
-        # Next Options are only for the Compressed file and not for the actual final file output
+        "path": f"output/{opt_filename}.opus", # Opus is natively supported
         "compress": False,
         "codec": "libopus",
         "container": "opus",
         "bitrate": "128k"
     }
-    #final_file_compressed = {
-    #    "compress": False,
-    #    "codec": "libopus",
-    #    "container": "opus",
-    #    "bitrate": "128k"
-    #}
     FILE_COMPRESSED = f"{COMPRESSION_OPT_PATH}/{opt_filename}.{final_file["container"]}"
 
     match check_filepaths(final_file["path"], final_file["compress"]):

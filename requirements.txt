@@ -3,3 +3,5 @@ yt-dlp
 musicbrainzngs
 pillow
 colorlog
+fuzzywuzzy
+python-Levenshtein
