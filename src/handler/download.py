@@ -71,7 +71,7 @@ class Youtube:
                     time.sleep( random.uniform(max(0, self.wait[x]-error),self.wait[x]+error) ) # sleep for wait time with error
         logging.debug("Downloaded '%s'", url)
 
-    def get_metadata_ytdlp(self, url: str) -> dict[str, int]:
+    def get_metadata_ytdlp(self, url: str) -> dict[str, int | None ]:
         """Downloads Youtube Metadata"""
         with YoutubeDL() as ydl:
             info_dict = ydl.extract_info(url, download=False)
@@ -162,6 +162,7 @@ class Youtube:
                     "score": score,
                     "title": f"{remove_words(entry.get("title", ""), blacklist)}",
                     "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), blacklist)}',
+                    "album": entry.get("album"),
                     "duration_ms": int( entry.get("duration", 0) * 1000 ),
                     "url": f"{entry.get("webpage_url", "")}",
                     "thumbnail": f"{entry.get("thumbnail", "")}",
