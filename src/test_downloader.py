@@ -44,3 +44,4 @@ yt = Youtube(logger=logger)
 rating = yt.youtube_search(song_title="under the stars", song_artist="project aer", does_case_matter=False)#, song_duration_ms=((2*60 +3) *1000))
 
 print(json.dumps(rating, indent=4))
+yt.download_audio(file_path=f"assets/{rating[0]["title"]} - {rating[0]["artist"]}.wav", url=rating[0]["url"])

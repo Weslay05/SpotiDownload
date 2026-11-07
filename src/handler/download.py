@@ -62,7 +62,7 @@ class Youtube:
                     sys.exit(1)
                 try:
                     ydl.download([url])
-                    x = self.max_retries # Success then Break Loop
+                    break
                 except Exception as e:
                         # : Catch max tries
                     logging.debug("ERROR while downloading: %s", str(e))
