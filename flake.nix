@@ -32,6 +32,7 @@
                 ps.musicbrainzngs
                 ps.pillow
                 ps.colorlog
+                ps.fuzzywuzzy
               ]))
               
               # Dependencies

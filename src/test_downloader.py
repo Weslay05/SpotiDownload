@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import colorlog
+import json
 
 from handler.download import Youtube
 
@@ -40,4 +41,6 @@ logger.addHandler(handler) # add handler for color format
 
 yt = Youtube(logger=logger)
 
-yt.download_audio(file_path="test", url="https://youtu.be/vSCYL8dySh9g?di=2CdtAkDFXBbx2cE0")
+rating = yt.youtube_search(song_title="under the stars", song_artist="project aer", does_case_matter=False)#, song_duration_ms=((2*60 +3) *1000))
+
+print(json.dumps(rating, indent=4))
