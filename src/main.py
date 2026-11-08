@@ -256,11 +256,18 @@ if __name__ == "__main__":
 
     final_output = f"{OUTPUT_DIR}/{ sanitize_filename( input_string= f"{song["title"]} - {song["artist"]}.{AUDIO_CONTAINER}" ) }"
     if check_filepaths(final_output):
-        logger.info("Song Already Exists: Skipping")
+        logger.info("✅ Song Already Exists: Skipping")
+        os.remove(LOCK_FILE)
         sys.exit()
 
     # Download -> Normalize -> Embed Metadata -> Final output song
-    yt.download_audio(file_path=tmp_song_path, url=f"{song["url"]}")
+    
+    if yt.download_audio(file_path=tmp_song_path, url=f"{song["url"]}") == 1:
+        logging.CRITICAL("‼️ Couldn't download song.. exiting ‼️")
+        os.remove(tmp_song_path)
+        os.remove(LOCK_FILE)
+        sys.exit(1)
+        
     analyze_result = audio.analyze_audio(file=tmp_song_path)
     audio.normalize_audio(input_file=tmp_song_path, output_file=tmp_norm_path, analysis_results=analyze_result)
     download_cover(url=song["thumbnail"], output_path=tmp_cover_path)
@@ -273,10 +280,11 @@ if __name__ == "__main__":
                    artist=song["artist"],
                    album=song["album"], bitrate=BITRATE)
     except:
-      print('An exception occurred')
+      print('‼️ An exception occurred')
 
 
     os.remove(tmp_cover_path)
     os.remove(tmp_norm_path)
     os.remove(tmp_song_path)
     os.remove(LOCK_FILE)
+    logging.info(". Downloaded: '%s'", final_output)

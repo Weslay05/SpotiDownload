@@ -62,7 +62,7 @@ class Youtube:
             for x in range(self.max_download_retries):
                 if x >= self.max_download_retries:
                     logging.critical("Couldn't download (%s)", url)
-                    sys.exit(1)
+                    return 1
                 try:
                     ydl.download([url])
                     break
@@ -74,14 +74,14 @@ class Youtube:
                     time.sleep( random.uniform(max(0, self.wait[x]-error),self.wait[x]+error) ) # sleep for wait time with error
         logging.debug("Downloaded '%s'", url)
 
-    def youtube_download_metadata(self, url:str ) -> dict[str, float]:
+    def youtube_download_metadata(self, url:str ):
         """Downloads Youtube Metadata"""
         log = self.logging
         with YoutubeDL() as ydl:
             for x in range(self.max_download_retries):
                 if x >= self.max_download_retries:
                     log.critical("Couldn't get Metadata from Youtube for (%s)", url)
-                    sys.exit(1)
+                    return 1
 
                 try:
                     info_dict = ydl.extract_info(url, download=False)
@@ -100,7 +100,7 @@ class Youtube:
                 except:
                     if x+1 >= self.max_download_retries:
                         log.critical("Couldn't get Metadata from Youtube for (%s)", url)
-                        sys.exit(1)
+                        return 1
                     log.info("couldn't download, trying again tries(%s/%s)", x+1, self.max_download_retries)
 
     def youtube_search(self, song_title: str, song_artist: str = "", song_duration_ms: int = 3000, tolerance_sec: int = 2, does_case_matter: bool = False):
