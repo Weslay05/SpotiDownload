@@ -38,7 +38,8 @@ class Youtube:
                  max_download_retries: int = 5,
                  retry_wait_seconds: list[float] = [0.54, 1.0, 2.0, 3.0, 4.0],
                  wait_error_seconds: float = 0.6,
-                 max_results_ytsearch: int = 5
+                 max_results_ytsearch: int = 5,
+                 blacklist_searching: str = "live,: live,: stream,: broadcast,: realtime,: direct,: hd live,: full live,: live now"
                  ) -> None:
         """Handles Youtube requests"""
         self.logging: object = logger
@@ -46,6 +47,7 @@ class Youtube:
         self.wait: list[float] = retry_wait_seconds
         self.error: float = wait_error_seconds
         self.max_results_ytsearch = max_results_ytsearch
+        # Blacklist for things that go into metadata
         blacklist: list[str] = [
             " (Official Video) ", " (Official Video)", "(Official Video)", "(OfficialVideo)", "OfficialVideo",
             " official MV ", " official MV", "official MV", " officialMV", "officialMV",
@@ -53,6 +55,7 @@ class Youtube:
             " Channel", " - topic", " topic",
             " lyrics",
             ]
+        self.blackmatch: list[str] = blacklist_searching.split(",: ") # Blacklist search, case-insensitive
         self.title_blacklist = blacklist
         self.artist_blacklist = blacklist
 
@@ -151,6 +154,7 @@ class Youtube:
                 #'extractflat': True,
                 'quiet': True,
                 'skip_download': True,
+                #'match-filter': f'{self.blackmatch}',
                 'noplaylist': True#,
                 #'max-downloads': max_downloads
             }
@@ -196,6 +200,8 @@ class Youtube:
                         "thumbnail": f"{entry.get("thumbnail", "")}",
                         "views": int( entry.get("view_count", 0) )
                     }
+                    if any(keyword.lower() in song["title"].lower() for keyword in self.blackmatch): # Skip if somethings blackmatched
+                        continue
                     if isinstance(song, list):
                         saved_songs.extend(song)
                     elif isinstance(song, dict):

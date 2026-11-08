@@ -57,6 +57,7 @@ BITRATE = os.getenv('OUTPUT_BITRATE') # kbp/s
 MAX_DOWNLOAD_TRIES = os.getenv('MAX_DOWNLOAD_TRIES')
 MAX_SEARCH_RETRIES = os.getenv('MAX_SEARCH_RETRIES')
 MAX_YOUTUBE_RESULTS = os.getenv('MAX_YOUTUBE_RESULTS')
+SEARCH_BLACKLIST = os.getenv('SEARCH_BLACKLIST')
 
 METADATA_FROM = os.getenv('METADATA_FROM')
 AUDIO_CONTAINER = os.getenv('AUDIO_CONTAINER')
@@ -70,43 +71,8 @@ from handler.download import Youtube
 from handler.ffmpeg import FFMPEG
 
 metadata = Metadata(logger=logging)
-yt = Youtube(logger=logging, max_download_retries=int(MAX_DOWNLOAD_TRIES), max_results_ytsearch=int(MAX_YOUTUBE_RESULTS))
+yt = Youtube(logger=logging, max_download_retries=int(MAX_DOWNLOAD_TRIES), max_results_ytsearch=int(MAX_YOUTUBE_RESULTS), blacklist_searching=f"{SEARCH_BLACKLIST}")
 audio = FFMPEG(logger=logging, output_loudness_lufs=LOUDNESS_LUFS, loudness_peak_dbfs=LOUDNESS_PEAK_DBFS, loudness_range_lra=LOUDNESS_RANGE_LRA)
-
-def get_cover(output_path:str, cover_url:str):
-    MAX_COVER_SIZE = 1024
-    if data["cover_url"] == "https://None":
-        cover_data = ""
-        img = Image.new("RGB", (1, 1), (255, 255, 255))
-        img.save(cover_path, "JPEG")
-        logging.critical("No Real Cover, using decoy jpg")
-    else:
-        cover_data = requests.get(data["cover_url"]).content
-        try:
-            img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-            #with open(cover_path, "wb") as f:
-            #    f.write(cover_data)
-            img.thumbnail((MAX_COVER_SIZE, MAX_COVER_SIZE))
-            img.save(cover_path, format="JPEG", quality=80)
-            logging.debug("wrote cover.jpg natively")
-        except Exception as e:
-            logging.debug("cover data: %s", str(e))
-            logging.warning("Invalid Cover Data falling back secondary cover")
-            cover_data = requests.get(data["cover_url_fallback"]).content
-            try: # TODO: Add another API as fallback instead of other url
-                img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-                #with open(cover_path, "wb") as f:
-                #    f.write(cover_data)
-                img.thumbnail((MAX_COVER_SIZE, MAX_COVER_SIZE))
-                img.save(cover_path, format="JPEG", quality=80)
-                logging.debug("wrote cover.jpg natively though had to use fallback")
-            except Exception as e2:
-                logging.debug("cover data: %s", str(e2))
-                logging.critical("Invalid Cover Data Creating decoy JPG to download and go on")
-                img = Image.new("RGB", (1, 1), (255, 255, 255))
-                img.save(cover_path, "JPEG")
-                logging.debug("wrote cover.jpg using decoy file")
-    genre_str = ", ".join(data["genres"])
 
 def embed_metadata(input_wav_file:str, output_file:str, title:str, artist:str, album:str, cover_path:str, date:str, bitrate:int=128):
     file_name, CODEC = output_file.rsplit(".", 1)
@@ -190,6 +156,8 @@ def download_cover(url: str, output_path):
         cover_data = requests.get(url).content
         img = Image.open(io.BytesIO(cover_data)).convert("RGB")
         img.thumbnail((max_cover_size, max_cover_size))
+        w, h = img.size
+        img.crop(((w-h)/2, 0, (w-h)/2+h, h)) # Crop to 1:1 ratio and get only middle part
         img.save(output_path, format="JPEG", quality=80)
         logging.info("wrote cover.jpg natively")
     except:
