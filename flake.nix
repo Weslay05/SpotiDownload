@@ -33,6 +33,7 @@
                 ps.pillow
                 ps.colorlog
                 ps.fuzzywuzzy
+                ps.python-dotenv
               ]))
               
               # Dependencies

@@ -5,6 +5,7 @@ import sys
 import math
 from fuzzywuzzy import fuzz
 import re
+import json
 
 def remove_words(input_string, word_blacklist) -> str:
     """
@@ -34,15 +35,17 @@ class Youtube:
 
     def __init__(self,
                  logger: object,
-                 max_retries: int = 5,
+                 max_download_retries: int = 5,
                  retry_wait_seconds: list[float] = [0.54, 1.0, 2.0, 3.0, 4.0],
-                 wait_error_seconds: float = 0.6
+                 wait_error_seconds: float = 0.6,
+                 max_results_ytsearch: int = 5
                  ) -> None:
         """Handles Youtube requests"""
         self.logging: object = logger
-        self.max_retries: int = max_retries
+        self.max_download_retries: int = max_download_retries
         self.wait: list[float] = retry_wait_seconds
         self.error: float = wait_error_seconds
+        self.max_results_ytsearch = max_results_ytsearch
 
     def download_audio(self, file_path: str, url: str):
         """Download audio from YouTube video URL."""
@@ -56,8 +59,8 @@ class Youtube:
 
         error = self.error
         with YoutubeDL(ydl_opts) as ydl:
-            for x in range(self.max_retries):
-                if x+1 >= self.max_retries:
+            for x in range(self.max_download_retries):
+                if x >= self.max_download_retries:
                     logging.critical("Couldn't download (%s)", url)
                     sys.exit(1)
                 try:
@@ -67,23 +70,38 @@ class Youtube:
                         # : Catch max tries
                     logging.debug("ERROR while downloading: %s", str(e))
                     logging.info("Couldn't download (%s) / try(%s/%s): timeout(%ss to %ss)...",
-                            url, x+1, self.max_retries, max(0, self.wait[x]-error), self.wait[x]+error)
+                            url, x+1, self.max_download_retries, max(0, self.wait[x]-error), self.wait[x]+error)
                     time.sleep( random.uniform(max(0, self.wait[x]-error),self.wait[x]+error) ) # sleep for wait time with error
         logging.debug("Downloaded '%s'", url)
 
-    def get_metadata_ytdlp(self, url: str) -> dict[str, int | None ]:
+    def youtube_download_metadata(self, url:str ) -> dict[str, int | None ]:
         """Downloads Youtube Metadata"""
+        log = self.logging
         with YoutubeDL() as ydl:
-            info_dict = ydl.extract_info(url, download=False)
-            blacklist: list[str] = [ " - topic", " lyrics", " topic" ]
-            data = {
-                "title": f"{remove_words(info_dict.get("title", ""), blacklist)}",
-                "artist": f'{remove_words(info_dict.get("track_artist") or info_dict.get("uploader"), blacklist)}',
-                "duration_sec": int( info_dict.get("duration", 0) ),
-                "url": f"{info_dict.get("webpage_url", "")}",
-                "thumbnail": f"{info_dict.get("thumbnail", "")}",
-            }
-        return data
+            for x in range(self.max_download_retries):
+                if x >= self.max_download_retries:
+                    log.critical("Couldn't get Metadata from Youtube for (%s)", url)
+                    sys.exit(1)
+
+                try:
+                    info_dict = ydl.extract_info(url, download=False)
+                    blacklist: list[str] = [ " - topic", " lyrics", " topic" ]
+                    date = f"{entry.get("upload_date")}"
+                    data = {
+                        "url": f"{info_dict.get("webpage_url", "")}",
+                        "title": f"{remove_words(info_dict.get("title", ""), blacklist)}",
+                        "artist": f'{remove_words(info_dict.get("track_artist") or info_dict.get("uploader"), blacklist)}',
+                        "album": info_dict.get("album"),
+                        "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
+                        "duration_sec": int( info_dict.get("duration", 0) ),
+                        "thumbnail": f"{info_dict.get("thumbnail", "")}"
+                    }
+                    return data
+                except:
+                    if x+1 >= self.max_download_retries:
+                        log.critical("Couldn't get Metadata from Youtube for (%s)", url)
+                        sys.exit(1)
+                    log.info("couldn't download, trying again tries(%s/%s)", x, self.max_download_retries)
 
     def youtube_search(self, song_title: str, song_artist: str = "", song_duration_ms: int = 3000, tolerance_sec: int = 2, does_case_matter: bool = False):
         """Gets Youtube URL Song title and artist"""
@@ -131,7 +149,7 @@ class Youtube:
             with YoutubeDL(ydl_opts) as ydl:
                 tries: list[int] = [ 1, 2, 3 ] # TODO: Maybe another try version
                 for x in range(len(tries)):
-                    if x+1 >= len(tries):
+                    if x >= len(tries):
                         log.warning("Search Failed fully for: (%s)", query)
                         return []
                     try:
@@ -142,13 +160,11 @@ class Youtube:
                                   query, str(e), x, len(tries))
                         time.sleep(tries[x])
 
-        highest_matching: int = 5
-
-        queries: list[str] = [
+        queries: list[str] = [ # TODO: Add async concurrent searches
                                  #f"https://music.youtube.com/search?q=:{song_title} - {song_artist}" # Youtube Music
-                                 f"ytsearch{highest_matching}:{song_title} - {song_artist}", # YT Search
-                                 f"ytsearch{highest_matching}:{song_title} - {song_artist} topic",
-                                 f"ytsearch{highest_matching}:{song_title} - {song_artist} AND lyrics"
+                                 f"ytsearch{self.max_results_ytsearch}:{song_title} - {song_artist}", # YT Search
+                                 f"ytsearch{self.max_results_ytsearch}:{song_title} - {song_artist} topic",
+                                 f"ytsearch{self.max_results_ytsearch}:{song_title} - {song_artist} AND lyrics"
                                  ]
 
         blacklist: list[str] = [ " - topic", " lyrics", " topic" ]
@@ -156,13 +172,17 @@ class Youtube:
         # Save songs with scores
         saved_songs: list = []
         for query in queries:
+            log.debug("Searching for (%s)", query)
             for entry in url_query(query):
                 score = soft_score(entry=entry, trg_title=song_title, trg_artist=song_artist, trg_duration_ms=song_duration_ms)
+                
+                date = f"{entry.get("upload_date")}"
                 song = {
                     "score": score,
                     "title": f"{remove_words(entry.get("title", ""), blacklist)}",
                     "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), blacklist)}',
                     "album": entry.get("album"),
+                    "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
                     "duration_ms": int( entry.get("duration", 0) * 1000 ),
                     "url": f"{entry.get("webpage_url", "")}",
                     "thumbnail": f"{entry.get("thumbnail", "")}",
@@ -177,4 +197,5 @@ class Youtube:
 
         sorted_songs = sorted(saved_songs, key=lambda x: x["score"], reverse=True) # Sort Songs by score
 
+        print(json.dumps(sorted_songs, indent=4))
         return sorted_songs

@@ -5,3 +5,4 @@ pillow
 colorlog
 fuzzywuzzy
 python-Levenshtein
+python-dotenv
