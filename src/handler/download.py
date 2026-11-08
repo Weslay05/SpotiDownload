@@ -179,27 +179,31 @@ class Youtube:
         saved_songs: list = []
         for query in queries:
             log.debug("Searching for (%s)", query)
-            for entry in url_query(query):
-                score = soft_score(entry=entry, trg_title=song_title, trg_artist=song_artist, trg_duration_ms=song_duration_ms)
-                
-                date = f"{entry.get("upload_date")}"
-                song = {
-                    "score": score,
-                    "title": f"{remove_words(entry.get("title", ""), self.title_blacklist)}",
-                    "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), self.artist_blacklist)}',
-                    "album": entry.get("album"),
-                    "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
-                    "duration_ms": int( entry.get("duration", 0) * 1000 ),
-                    "url": f"{entry.get("webpage_url", "")}",
-                    "thumbnail": f"{entry.get("thumbnail", "")}",
-                    "views": int( entry.get("view_count", 0) )
-                }
-                if isinstance(song, list):
-                    saved_songs.extend(song)
-                elif isinstance(song, dict):
-                    saved_songs.append(song)
-                else:
-                    log.warning("somethings missing out: %s", song)
+            try:
+                entries = url_query(query)
+                for entry in entries:
+                    score = soft_score(entry=entry, trg_title=song_title, trg_artist=song_artist, trg_duration_ms=song_duration_ms)
+
+                    date = f"{entry.get("upload_date")}"
+                    song = {
+                        "score": score,
+                        "title": f"{remove_words(entry.get("title", ""), self.title_blacklist)}",
+                        "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), self.artist_blacklist)}',
+                        "album": entry.get("album"),
+                        "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
+                        "duration_ms": int( entry.get("duration", 0) * 1000 ),
+                        "url": f"{entry.get("webpage_url", "")}",
+                        "thumbnail": f"{entry.get("thumbnail", "")}",
+                        "views": int( entry.get("view_count", 0) )
+                    }
+                    if isinstance(song, list):
+                        saved_songs.extend(song)
+                    elif isinstance(song, dict):
+                        saved_songs.append(song)
+                    else:
+                        log.warning("somethings missing out: %s", song)
+            except:
+                log.warning("‼️Couldn't Query for %s", query)
 
         sorted_songs = sorted(saved_songs, key=lambda x: x["score"], reverse=True) # Sort Songs by score
 
