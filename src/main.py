@@ -242,12 +242,18 @@ if __name__ == "__main__":
     song: dict = {}
     final_output: str = ""
     if METADATA_FROM == "youtube" and args.youtube:
-        # Download Sonng
+        # Download Song
         song = yt.youtube_download_metadata(url=f"{args.youtube}") # Get Metadata & Download Cover
         logging.info("Got Song: (%s)", f"{song["title"]} - {song["artist"]}")
     elif METADATA_FROM == "youtube" and args.song:
-        title, artist = args.song.rsplit(" - ", 1)
-        artist = artist.split(", ", 1)[0]
+        try:
+          title, artist = args.song.rsplit(" - ", 1)
+          artist = artist.split(", ", 1)[0]
+        except:
+          logging.error("Artist invalid (this will impact the score significantly), fallback to title only / please use this format: (title - artist, artist2 ...)")
+          title = args.song.rsplit(" - ", 1)[0]
+          artist = ""
+
         song = yt.youtube_search(song_title=f"{title}", song_artist=f"{artist}")[0]
         logging.info("Got Song: (%s)", f"{song["title"]} - {song["artist"]}")
         logging.info("Song Data: scored(%s) / url(%s)", song["score"], song["url"])
