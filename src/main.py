@@ -184,15 +184,17 @@ def random_alphanumeric(length: int) -> str:
     return ''.join(random.choice(pool) for _ in range(length))
 
 def download_cover(url: str, output_path):
-    #img = Image.new("RGB", (1, 1), (255, 255, 255))
-    #img.save(output_path, "JPEG")
-    #logging.critical("No Real Cover, using decoy jpg")
-    max_cover_size = 1024 # In pixels
-    cover_data = requests.get(url).content
-    img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-    img.thumbnail((max_cover_size, max_cover_size))
-    img.save(output_path, format="JPEG", quality=80)
-    logging.debug("wrote cover.jpg natively")
+    try:
+        max_cover_size = 1024 # In pixels
+        cover_data = requests.get(url).content
+        img = Image.open(io.BytesIO(cover_data)).convert("RGB")
+        img.thumbnail((max_cover_size, max_cover_size))
+        img.save(output_path, format="JPEG", quality=80)
+        logging.info("wrote cover.jpg natively")
+    except:
+        img = Image.new("RGB", (1, 1), (255, 255, 255))
+        img.save(output_path, "JPEG")
+        logging.critical("Couldn't use (%s) for cover", url)
 
 if __name__ == "__main__":
     # Argument Parser
