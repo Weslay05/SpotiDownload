@@ -266,5 +266,8 @@ if __name__ == "__main__":
     else:
         logging.error("something at compress audio went wrong, though not sure what")
 
-    logging.info("✅ Downloaded: '%s'\n", final_file["path"])
+    if song["score"] < 20.0:
+        logging.warning("✅‼️ SCORE UNDER 20 PLEASE CHECK / Downloaded: '%s'\n", final_file["path"])
+    else:
+        logging.info("✅ Downloaded: '%s'\n", final_file["path"])
     sys.exit(0)

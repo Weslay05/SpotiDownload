@@ -46,6 +46,15 @@ class Youtube:
         self.wait: list[float] = retry_wait_seconds
         self.error: float = wait_error_seconds
         self.max_results_ytsearch = max_results_ytsearch
+        blacklist: list[str] = [
+            " (Official Video) ", " (Official Video)", "(Official Video)", "(OfficialVideo)", "OfficialVideo",
+            " official MV ", " official MV", "official MV", " officialMV", "officialMV",
+            " (Official Lyric Video)", "Official Channel", " / Official", " official",
+            " Channel", " - topic", " topic",
+            " lyrics",
+            ]
+        self.title_blacklist = blacklist
+        self.artist_blacklist = blacklist
 
     def download_audio(self, file_path: str, url: str):
         """Download audio from YouTube video URL."""
@@ -85,12 +94,11 @@ class Youtube:
 
                 try:
                     info_dict = ydl.extract_info(url, download=False)
-                    blacklist: list[str] = [ " - topic", " lyrics", " topic" ]
                     date = f"{info_dict.get("upload_date")}"
                     data = {
                         "url": f"{info_dict.get("webpage_url", "")}",
-                        "title": f"{remove_words(info_dict.get("title", ""), blacklist)}",
-                        "artist": f'{remove_words(info_dict.get("track_artist") or info_dict.get("uploader"), blacklist)}',
+                        "title": f"{remove_words(info_dict.get("title", ""), self.title_blacklist)}",
+                        "artist": f'{remove_words(info_dict.get("track_artist") or info_dict.get("uploader"), self.artist_blacklist)}',
                         "album": info_dict.get("album"),
                         "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
                         "duration_ms": info_dict.get("duration", 0),
@@ -122,11 +130,11 @@ class Youtube:
 
             # Title & Artist Score
             if does_case_matter:
-                score += fuzz.ratio(entry_tmp["title"], trg_title)/100 *20 # : Title Matching
-                score += fuzz.ratio(entry_tmp["artist"], trg_artist)/100 *28 # : Artist Matching
+                score += fuzz.ratio(entry_tmp["title"], trg_title)/100 *15 # : Title Matching
+                score += fuzz.ratio(entry_tmp["artist"], trg_artist)/100 *35 # : Artist Matching
             else:
-                score += fuzz.ratio(entry_tmp["title"].lower(), trg_title.lower())/100 *20 # : Title Matching
-                score += fuzz.ratio(entry_tmp["artist"].lower(), trg_artist.lower())/100 *28 # : Artist Matching
+                score += fuzz.ratio(entry_tmp["title"].lower(), trg_title.lower())/100 *15 # : Title Matching
+                score += fuzz.ratio(entry_tmp["artist"].lower(), trg_artist.lower())/100 *35 # : Artist Matching
 
             # View Score (logarithmic)
             score += max(0, 3*math.log2( math.log10(entry_tmp["views"]) /1000 +1 ) ) # : 1 for >200, 3 for 1K / 6 for 10k / 9 for 100K / 12 for 1 Million
@@ -167,8 +175,6 @@ class Youtube:
                                  f"ytsearch{self.max_results_ytsearch}:{song_title} - {song_artist} AND lyrics"
                                  ]
 
-        blacklist: list[str] = [ " - topic", " lyrics", " topic" ]
-
         # Save songs with scores
         saved_songs: list = []
         for query in queries:
@@ -179,8 +185,8 @@ class Youtube:
                 date = f"{entry.get("upload_date")}"
                 song = {
                     "score": score,
-                    "title": f"{remove_words(entry.get("title", ""), blacklist)}",
-                    "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), blacklist)}',
+                    "title": f"{remove_words(entry.get("title", ""), self.title_blacklist)}",
+                    "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), self.artist_blacklist)}',
                     "album": entry.get("album"),
                     "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
                     "duration_ms": int( entry.get("duration", 0) * 1000 ),

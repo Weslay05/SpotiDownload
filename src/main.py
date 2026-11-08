@@ -227,10 +227,10 @@ if __name__ == "__main__":
     tmp_cover_path = f"{OUTPUT_DIR}/cover_{RAND_STRING}.jpg"
     METADATA_FROM = "youtube" # TODO: False not Implemented
 
-    logging.info("Starting to download a new Track with given data:\n")
+    logging.info("--- Starting to download a new Track with given data:\n")
 
     if not args.song and not args.youtube:
-        logging.error('No arguments given')
+        logging.error('‼️ No arguments given')
         sys.exit(0)
     else:
         logging.debug('Using given Arguments')
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         logging.info("Got Song: (%s)", f"{song["title"]} - {song["artist"]}")
         logging.info("Song Data: scored(%s) / url(%s)", song["score"], song["url"])
     else:
-        logger.error("Got No useful input")
+        logger.error("‼️ Got No useful input")
     if args.cover:
         pass
 
@@ -287,4 +287,7 @@ if __name__ == "__main__":
     os.remove(tmp_norm_path)
     os.remove(tmp_song_path)
     os.remove(LOCK_FILE)
-    logging.info(". Downloaded: '%s'", final_output)
+    if song["score"] < 25.0:
+        logging.warning("✅‼️ SCORE UNDER 25 PLEASE CHECK / Downloaded: '%s'\n", final_output)
+    else:
+        logging.info("✅ Downloaded: '%s'", final_output)
