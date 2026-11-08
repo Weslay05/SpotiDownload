@@ -53,7 +53,7 @@ load_dotenv()
 # Initialize the client with a descriptive user-agent string
 OUTPUT_DIR = os.getenv('OUTPUT_DIRECTORY')
 
-OPUS_FINAL_FILE_BITRATE = os.getenv('OPUS_BITRATE') # kbp/s
+BITRATE = os.getenv('OUTPUT_BITRATE') # kbp/s
 MAX_DOWNLOAD_TRIES = os.getenv('MAX_DOWNLOAD_TRIES')
 MAX_YOUTUBE_RESULTS = os.getenv('MAX_YOUTUBE_RESULTS')
 
@@ -107,12 +107,12 @@ def get_cover(output_path:str, cover_url:str):
                 logging.debug("wrote cover.jpg using decoy file")
     genre_str = ", ".join(data["genres"])
 
-def embed_metadata(input_wav_file:str, output_file:str, title:str, artist:str, album:str, cover_path:str, date:str):
+def embed_metadata(input_wav_file:str, output_file:str, title:str, artist:str, album:str, cover_path:str, date:str, bitrate:int=128):
     file_name, CODEC = output_file.rsplit(".", 1)
     if CODEC == "opus" or CODEC == "libopus":
         cmd = [
             "opusenc",
-            "--bitrate", OPUS_FINAL_FILE_BITRATE, "--vbr",
+            "--bitrate", bitrate, "--vbr",
             "--title", f"{title}",
             "--artist", f"{artist}",
             "--album", f"{album}",
@@ -271,7 +271,7 @@ if __name__ == "__main__":
                    date=song["date"],
                    title=song["title"],
                    artist=song["artist"],
-                   album=song["album"])
+                   album=song["album"], bitrate=BITRATE)
     except:
       print('An exception occurred')
 
