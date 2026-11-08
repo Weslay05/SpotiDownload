@@ -224,13 +224,16 @@ if __name__ == "__main__":
         song = args.song
         youtube = args.youtube
 
+    # Parse args & Search for Song
     song: dict = {}
     final_output: str = ""
     if METADATA_FROM == "youtube" and args.youtube:
         # Download Song
+        logging.info("...Processing user-input: (%s)", args.youtube)
         song = yt.youtube_download_metadata(url=f"{args.youtube}") # Get Metadata & Download Cover
         logging.info("Got Song: (%s)", f"{song["title"]} - {song["artist"]}")
     elif METADATA_FROM == "youtube" and args.song:
+        logging.info("...Processing user-input: (%s)", args.song)
         try:
           title, artist = args.song.rsplit(" - ", 1)
           artist = artist.split(", ", 1)[0]
@@ -251,13 +254,14 @@ if __name__ == "__main__":
     if args.cover:
         pass
 
+    # Check if song Already exists ad set Final Name
     final_output = f"{OUTPUT_DIR}/{ sanitize_filename( input_string= f"{song["title"]} - {song["artist"]}.{AUDIO_CONTAINER}" ) }"
     if check_filepaths(final_output):
         logger.info("✅ Song Already Exists: Skipping")
         os.remove(LOCK_FILE)
         sys.exit()
 
-    # Download -> Normalize -> Embed Metadata -> Final output song
+    # Download Song
     try:
         if yt.download_audio(file_path=tmp_song_path, url=f"{song["url"]}") == 1:
             logging.CRITICAL("‼️ Couldn't download song.. exiting ‼️")
@@ -269,10 +273,19 @@ if __name__ == "__main__":
         os.remove(tmp_song_path)
         os.remove(LOCK_FILE)
         sys.exit(1)
-        
+
+    # Normalize Audio
     analyze_result = audio.analyze_audio(file=tmp_song_path)
     audio.normalize_audio(input_file=tmp_song_path, output_file=tmp_norm_path, analysis_results=analyze_result)
-    download_cover(url=song["thumbnail"], output_path=tmp_cover_path)
+
+    # Download Cover
+    if args.cover:
+        thumbnail = args.cover
+    else:
+        thumbnail = song["thumbnail"]
+    download_cover(url=thumbnail, output_path=tmp_cover_path)
+
+    # Embed Metadata into/using downloaded files
     try:
         embed_metadata(input_wav_file=tmp_norm_path,
                    output_file=final_output,
