@@ -280,13 +280,17 @@ if __name__ == "__main__":
                    artist=song["artist"],
                    album=song["album"], bitrate=BITRATE)
     except:
-      print('‼️ An exception occurred')
+        logging.warning("‼️ An exception occurred")
+        print('‼️ An exception occurred')
 
+    try:
+        os.remove(tmp_cover_path)
+        os.remove(tmp_norm_path)
+        os.remove(tmp_song_path)
+        os.remove(LOCK_FILE)
+    except:
+        logging.error("‼️ Some thing might be missing song cover normalized audio or song, please check.")
 
-    os.remove(tmp_cover_path)
-    os.remove(tmp_norm_path)
-    os.remove(tmp_song_path)
-    os.remove(LOCK_FILE)
     if song["score"] < 25.0:
         logging.warning("✅‼️ SCORE UNDER 25 PLEASE CHECK / Downloaded: '%s'\n", final_output)
     else:
