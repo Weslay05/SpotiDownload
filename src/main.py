@@ -152,12 +152,28 @@ def random_alphanumeric(length: int) -> str:
 
 def download_cover(url: str, output_path):
     try:
+        # Get the Image
         max_cover_size = 1024 # In pixels
         cover_data = requests.get(url).content
         img = Image.open(io.BytesIO(cover_data)).convert("RGB")
-        img.thumbnail((max_cover_size, max_cover_size))
+
+        # Convert Image Format
+        if img.format == "JPEG" or output_path.lower().endswith(".jpg"):
+            # JPEG can't handle alpha → force RGB
+            img = img.convert("RGB")
+        else:
+            # Keep whatever mode the source image already has (RGBA, LA, etc.)
+            img = img.convert(img.mode)  # no‑op if already correct
+
+        # Crop -> Resize Image
         w, h = img.size
-        img.crop(((w-h)/2, 0, (w-h)/2+h, h)) # Crop to 1:1 ratio and get only middle part
+        if w > h:
+            img = img.crop(((w-h)//2, 0, (w+h)//2, h))
+        elif h > w:
+            img = img.crop((0, (h-w)//2, w, (h+w)//2))
+        img.thumbnail((max_cover_size, max_cover_size))
+
+        # Save it
         img.save(output_path, format="JPEG", quality=80)
         logging.info("wrote cover.jpg natively")
     except:
