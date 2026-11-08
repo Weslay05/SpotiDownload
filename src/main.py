@@ -55,6 +55,7 @@ OUTPUT_DIR = os.getenv('OUTPUT_DIRECTORY')
 
 BITRATE = os.getenv('OUTPUT_BITRATE') # kbp/s
 MAX_DOWNLOAD_TRIES = os.getenv('MAX_DOWNLOAD_TRIES')
+MAX_SEARCH_RETRIES = os.getenv('MAX_SEARCH_RETRIES')
 MAX_YOUTUBE_RESULTS = os.getenv('MAX_YOUTUBE_RESULTS')
 
 METADATA_FROM = os.getenv('METADATA_FROM')
@@ -62,7 +63,7 @@ AUDIO_CONTAINER = os.getenv('AUDIO_CONTAINER')
 
 LOUDNESS_LUFS = os.getenv('LOUDNESS_LUFS')
 LOUDNESS_PEAK_DBFS = os.getenv('LOUDNESS_PEAK_DBFS')
-LOUDNESS_RANGE_LRA = os.getenv('LOUDNESS_RANGE_LRA')
+LOUDNESS_RANGE_LRA = os.getenv('LOUDNESS_RANGE_MAX_LRA')
 
 from handler.metadata import Metadata
 from handler.download import Youtube
@@ -254,7 +255,11 @@ if __name__ == "__main__":
           title = args.song.rsplit(" - ", 1)[0]
           artist = ""
 
-        song = yt.youtube_search(song_title=f"{title}", song_artist=f"{artist}")[0]
+        for x in range( max(0, int(MAX_SEARCH_RETRIES)) ):
+            try:
+                song = yt.youtube_search(song_title=f"{title}", song_artist=f"{artist}")[0]
+            except:
+                logging.critical("Youtube Search failed, may've returned nothing, trying again (%s/%s)", x+1, MAX_SEARCH_RETRIES)
         logging.info("Got Song: (%s)", f"{song["title"]} - {song["artist"]}")
         logging.info("Song Data: scored(%s) / url(%s)", song["score"], song["url"])
     else:
@@ -269,8 +274,13 @@ if __name__ == "__main__":
         sys.exit()
 
     # Download -> Normalize -> Embed Metadata -> Final output song
-    
-    if yt.download_audio(file_path=tmp_song_path, url=f"{song["url"]}") == 1:
+    try:
+        if yt.download_audio(file_path=tmp_song_path, url=f"{song["url"]}") == 1:
+            logging.CRITICAL("‼️ Couldn't download song.. exiting ‼️")
+            os.remove(tmp_song_path)
+            os.remove(LOCK_FILE)
+            sys.exit(1)
+    except:
         logging.CRITICAL("‼️ Couldn't download song.. exiting ‼️")
         os.remove(tmp_song_path)
         os.remove(LOCK_FILE)
