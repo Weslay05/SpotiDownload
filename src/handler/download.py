@@ -207,5 +207,5 @@ class Youtube:
 
         sorted_songs = sorted(saved_songs, key=lambda x: x["score"], reverse=True) # Sort Songs by score
 
-        print(json.dumps(sorted_songs, indent=4))
+        #print(json.dumps(sorted_songs, indent=4))
         return sorted_songs
