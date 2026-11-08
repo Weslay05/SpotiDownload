@@ -285,11 +285,20 @@ if __name__ == "__main__":
 
     try:
         os.remove(tmp_cover_path)
+    except:
+        logging.error('‼️Missing Cover‼️')
+    try:
         os.remove(tmp_norm_path)
+    except:
+        logging.error('‼️Missing Normalized Audio‼️')
+    try:
         os.remove(tmp_song_path)
+    except:
+        logging.error('‼️Missing Downloaded Audio‼️')
+    try:
         os.remove(LOCK_FILE)
     except:
-        logging.error("‼️ Some thing might be missing song cover normalized audio or song, please check.")
+        logging.error('‼️Missing LOCKFILE‼️')
 
     if song["score"] < 25.0:
         logging.warning("✅‼️ SCORE UNDER 25 PLEASE CHECK / Downloaded: '%s'\n", final_output)
