@@ -309,6 +309,6 @@ if __name__ == "__main__":
         logging.error('‼️Missing LOCKFILE‼️')
 
     if song["score"] < 25.0:
-        logging.warning("✅‼️ SCORE UNDER 25 PLEASE CHECK / Downloaded: '%s'\n", final_output)
+        logging.warning("✅‼️ SCORE UNDER 25 PLEASE CHECK / Downloaded: '%s'", final_output)
     else:
         logging.info("✅ Downloaded: '%s'", final_output)

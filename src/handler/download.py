@@ -164,7 +164,7 @@ class Youtube:
                         info = ydl.extract_info(f"{query}", download=False)
                         return info.get("entries", []) if info else []
                     except Exception as e:
-                        log.debug("Temp Search failed for (%s) : %s\n...retry(%s/%s)",
+                        log.debug("Temp Search failed for (%s) : (%s) retry(%s/%s)",
                                   query, str(e), x, len(tries))
                         time.sleep(tries[x])
 
