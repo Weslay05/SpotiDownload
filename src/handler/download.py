@@ -74,7 +74,7 @@ class Youtube:
                     time.sleep( random.uniform(max(0, self.wait[x]-error),self.wait[x]+error) ) # sleep for wait time with error
         logging.debug("Downloaded '%s'", url)
 
-    def youtube_download_metadata(self, url:str ) -> dict[str, int | None ]:
+    def youtube_download_metadata(self, url:str ) -> dict[str, float]:
         """Downloads Youtube Metadata"""
         log = self.logging
         with YoutubeDL() as ydl:
@@ -86,14 +86,14 @@ class Youtube:
                 try:
                     info_dict = ydl.extract_info(url, download=False)
                     blacklist: list[str] = [ " - topic", " lyrics", " topic" ]
-                    date = f"{entry.get("upload_date")}"
+                    date = f"{info_dict.get("upload_date")}"
                     data = {
                         "url": f"{info_dict.get("webpage_url", "")}",
                         "title": f"{remove_words(info_dict.get("title", ""), blacklist)}",
                         "artist": f'{remove_words(info_dict.get("track_artist") or info_dict.get("uploader"), blacklist)}',
                         "album": info_dict.get("album"),
                         "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
-                        "duration_sec": int( info_dict.get("duration", 0) ),
+                        "duration_ms": info_dict.get("duration", 0),
                         "thumbnail": f"{info_dict.get("thumbnail", "")}"
                     }
                     return data
@@ -101,7 +101,7 @@ class Youtube:
                     if x+1 >= self.max_download_retries:
                         log.critical("Couldn't get Metadata from Youtube for (%s)", url)
                         sys.exit(1)
-                    log.info("couldn't download, trying again tries(%s/%s)", x, self.max_download_retries)
+                    log.info("couldn't download, trying again tries(%s/%s)", x+1, self.max_download_retries)
 
     def youtube_search(self, song_title: str, song_artist: str = "", song_duration_ms: int = 3000, tolerance_sec: int = 2, does_case_matter: bool = False):
         """Gets Youtube URL Song title and artist"""
