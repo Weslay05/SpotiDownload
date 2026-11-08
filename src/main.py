@@ -26,7 +26,7 @@ logging.basicConfig(
     filename="assets/song_downloader.log",     # log file name
     filemode="a",
     encoding="utf-8",
-    level=logging.DEBUG,                 # log level: DEBUG, INFO, WARNING, ERROR
+    level=logging.INFO,                 # log level: DEBUG, INFO, WARNING, ERROR
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
@@ -56,6 +56,9 @@ OUTPUT_DIR = os.getenv('OUTPUT_DIRECTORY')
 OPUS_FINAL_FILE_BITRATE = os.getenv('OPUS_BITRATE') # kbp/s
 MAX_DOWNLOAD_TRIES = os.getenv('MAX_DOWNLOAD_TRIES')
 MAX_YOUTUBE_RESULTS = os.getenv('MAX_YOUTUBE_RESULTS')
+
+METADATA_FROM = os.getenv('METADATA_FROM')
+AUDIO_CONTAINER = os.getenv('AUDIO_CONTAINER')
 
 LOUDNESS_LUFS = os.getenv('LOUDNESS_LUFS')
 LOUDNESS_PEAK_DBFS = os.getenv('LOUDNESS_PEAK_DBFS')
@@ -105,8 +108,7 @@ def get_cover(output_path:str, cover_url:str):
     genre_str = ", ".join(data["genres"])
 
 def embed_metadata(input_wav_file:str, output_file:str, title:str, artist:str, album:str, cover_path:str, date:str):
-    CODEC: str = output_file.rsplit(".", 1)[-1]
-    # clean_album: str = "".join(ch for ch in data['album'] if ch.isprintable()).strip()
+    file_name, CODEC = output_file.rsplit(".", 1)
     if CODEC == "opus" or CODEC == "libopus":
         cmd = [
             "opusenc",
@@ -117,7 +119,7 @@ def embed_metadata(input_wav_file:str, output_file:str, title:str, artist:str, a
             "--date", f"{date}",
             #"--genre", f"{genre_str}",
             "--picture", f"3||Front Cover||{cover_path}",
-            input_wav_file, f"{output_file.rsplit('.', 1)[0]}.opus"
+            input_wav_file, f"{file_name}.{CODEC}"
         ]
     else:
         if CODEC == "flac":
@@ -138,7 +140,7 @@ def embed_metadata(input_wav_file:str, output_file:str, title:str, artist:str, a
             "-metadata", f"{date}",
             #"-metadata", f"genre={genre_str}",
             "-disposition:v", "attached_pic",
-            output_file
+            f"{file_name}.{CODEC}"
         ]
     logging.debug("embedding metadata")
     subprocess.run(cmd, check=False)
@@ -162,8 +164,8 @@ def sanitize_filename(input_string: str):
     output = re.sub(r'[<>:"/\\|?*]', '', input_string)
     #artists = re.sub(r'[<>:"/\\|?*]', '', artists)
     # trim to a maximum length
-    max_length_artists = 100
-    max_length_song = 50
+    #max_length_artists = 100
+    max_length_song = 100
     if len(output) > max_length_song:
         output = output[:max_length_song].rstrip()
     #if len(artists) > max_length_artists:
@@ -223,10 +225,9 @@ if __name__ == "__main__":
     tmp_song_path = f"{OUTPUT_DIR}/downloaded_{RAND_STRING}.wav"
     tmp_norm_path = f"{OUTPUT_DIR}/normalized_{RAND_STRING}.wav"
     tmp_cover_path = f"{OUTPUT_DIR}/cover_{RAND_STRING}.jpg"
-    ONLY_YOUTUBE_DATA = True # TODO: False not Implemented
-    AUDIO_CONTAINER = "opus"
+    METADATA_FROM = "youtube" # TODO: False not Implemented
 
-    logging.info("Starting to download a new Track with given data")
+    logging.info("Starting to download a new Track with given data:\n")
 
     if not args.song and not args.youtube:
         logging.error('No arguments given')
@@ -238,11 +239,11 @@ if __name__ == "__main__":
 
     song: dict = {}
     final_output: str = ""
-    if ONLY_YOUTUBE_DATA and args.youtube:
+    if METADATA_FROM == "youtube" and args.youtube:
         # Download Sonng
         song = yt.youtube_download_metadata(url=f"{args.youtube}") # Get Metadata & Download Cover
         logging.info("Got Song: (%s)", f"{song["title"]} - {song["artist"]}")
-    elif args.song: # Not IMPLEMENTED
+    elif METADATA_FROM == "youtube" and args.song:
         title, artist = args.song.rsplit(" - ", 1)
         artist = artist.split(", ", 1)[0]
         song = yt.youtube_search(song_title=f"{title}", song_artist=f"{artist}")[0]
@@ -253,19 +254,27 @@ if __name__ == "__main__":
     if args.cover:
         pass
 
+    final_output = f"{OUTPUT_DIR}/{ sanitize_filename( input_string= f"{song["title"]} - {song["artist"]}.{AUDIO_CONTAINER}" ) }"
+    if check_filepaths(final_output):
+        logger.info("Song Already Exists: Skipping")
+        sys.exit()
+
     # Download -> Normalize -> Embed Metadata -> Final output song
     yt.download_audio(file_path=tmp_song_path, url=f"{song["url"]}")
     analyze_result = audio.analyze_audio(file=tmp_song_path)
     audio.normalize_audio(input_file=tmp_song_path, output_file=tmp_norm_path, analysis_results=analyze_result)
-    final_output = f"{OUTPUT_DIR}/{ sanitize_filename( input_string= f"{song["title"]} - {song["artist"]}" ) }.{AUDIO_CONTAINER}"
     download_cover(url=song["thumbnail"], output_path=tmp_cover_path)
-    embed_metadata(input_wav_file=tmp_norm_path,
+    try:
+        embed_metadata(input_wav_file=tmp_norm_path,
                    output_file=final_output,
                    cover_path=tmp_cover_path,
                    date=song["date"],
                    title=song["title"],
                    artist=song["artist"],
                    album=song["album"])
+    except:
+      print('An exception occurred')
+
 
     os.remove(tmp_cover_path)
     os.remove(tmp_norm_path)
