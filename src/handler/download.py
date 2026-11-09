@@ -13,9 +13,9 @@ def remove_words(input_string, word_blacklist) -> str:
     """
     # Create a pattern that matches any of the blacklist words case-insensitively
     escaped_words = [re.escape(word) for word in word_blacklist]
-    pattern = r'\b(' + '|'.join(escaped_words) + r')\b'
 
-    # Replace matches with empty string, case-insensitive
+    # Remove items
+    pattern = r'(?:' + '|'.join(escaped_words) + r')'
     result = re.sub(pattern, '', input_string, flags=re.IGNORECASE)
 
     # Remove Empty Brackets
@@ -48,16 +48,15 @@ class Youtube:
         self.max_results_ytsearch = max_results_ytsearch
         # Blacklist for things that go into metadata
         blacklist_title: list[str] = [
-            "official channel", "topics"
+            "official channel", "- topic", "- topics",
             "official MV", "official lyric video", "official video",
-            "vietsub + lyrics", "lyric video", "lyrics", "lyric",
-            "english subs", "subtitles"
-            "youtube",
-            #" records"
+            "vietsub + lyrics", "lyric video", "- lyrics", "lyrics", "- lyric" "lyric",
+            "english subs", "- subtitles", "subtitles"
+            "youtube"
         ]
         blacklist_artist: list[str] = [
-            "channel", "topic",
-            "official channel", "youtube",
+            "channel", "- topic", "topic",
+            "- official", "official", "youtube"
         ]
         self.blackmatch: list[str] = blacklist_searching.split(",: ") # Blacklist search, case-insensitive
         self.title_blacklist = blacklist_title
