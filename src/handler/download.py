@@ -48,7 +48,7 @@ class Youtube:
         self.max_results_ytsearch = max_results_ytsearch
         # Blacklist for things that go into metadata
         blacklist_title: list[str] = [
-            "official channel",
+            "official channel", "topics"
             "official MV", "official lyric video", "official video",
             "vietsub + lyrics", "lyric video", "lyrics", "lyric",
             "english subs", "subtitles"
