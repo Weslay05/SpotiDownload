@@ -7,77 +7,26 @@ from fuzzywuzzy import fuzz
 import re
 import json
 
-def url_query(query):
-    ydl_opts = {
-        # 'cookies': cookies,
-        #'extractflat': True,
-        'quiet': True,
-        'skip_download': True,
-        #'match-filter': f'{blacklist}',
-        'noplaylist': True#,
-        #'max-downloads': max_downloads
-    }
-    with YoutubeDL(ydl_opts) as ydl:
-        tries: list[int] = [ 1, 2, 3 ] # TODO: Maybe another try version
-        for x in range(len(tries)):
-            if x >= len(tries):
-                log.warning("Search Failed fully for: (%s)", query)
-                return []
-            try:
-                info = ydl.extract_info(f"{query}", download=False)
-                return info.get("entries", []) if info else []
-            except Exception as e:
-                log.debug("Temp Search failed for (%s) : (%s) retry(%s/%s)",
-                          query, str(e), x, len(tries))
-                time.sleep(tries[x])
-
-def soft_score(entry, trg_title:str, trg_artist: str = "", trg_duration_ms: int = 3000) -> float:
-    """Scores softer, ensure good instead of perfect but rare results"""
-    score: float = 0.0
-    entry_tmp = {
-        "title": f'{entry.get("title", "")}',
-        "duration_ms": int(entry.get("duration", 0) * 1000),
-        "artist": f'{entry.get("track_artist") or entry.get("uploader")}',
-        "views": int(entry.get("view_count", 0))
-    }
-    # Title & Artist Score
-    if does_case_matter:
-        score += fuzz.ratio(entry_tmp["title"], trg_title)/100 *15 # : Title Matching
-        score += fuzz.ratio(entry_tmp["artist"], trg_artist)/100 *35 # : Artist Matching
-    else:
-        score += fuzz.ratio(entry_tmp["title"].lower(), trg_title.lower())/100 *15 # : Title Matching
-        score += fuzz.ratio(entry_tmp["artist"].lower(), trg_artist.lower())/100 *35 # : Artist Matching
-
-    # View Score (logarithmic)
-    score += max(0, 3*math.log2( math.log10(entry_tmp["views"]) /1000 +1 ) ) # : 1 for >200, 3 for 1K / 6 for 10k / 9 for 100K / 12 for 1 Million
-
-    # Duration Score
-    if trg_duration_ms > 5*1000:
-        score += max(0, -math.pow( abs(entry_tmp["duration_ms"]-trg_duration_ms) /1000, 2) +15 ) # Duration Matching
-
-    return score
-
 def remove_words(input_string, word_blacklist) -> str:
     """
     Removes all words from input_string that are in word_blacklist (case-insensitive).
-    
-    Args:
-        input_string (str): The original string
-        word_blacklist (list): List of words to remove
-        
-    Returns:
-        str: String with blacklist words removed
     """
     # Create a pattern that matches any of the blacklist words case-insensitively
     escaped_words = [re.escape(word) for word in word_blacklist]
     pattern = r'\b(' + '|'.join(escaped_words) + r')\b'
-    
+
     # Replace matches with empty string, case-insensitive
     result = re.sub(pattern, '', input_string, flags=re.IGNORECASE)
-    
+
+    # Remove Empty Brackets
+    result = result.replace("()", "") # Remove all ()
+    result = result.replace("【】", "") # Remove all 【】
+    result = result.replace("[]", "") # Remove all []
+    result = result.replace("{}", "") # Remove all {}
+
     # Clean up extra spaces left behind
     result = re.sub(r'\s+', ' ', result).strip()
-    
+
     return result
 
 class Youtube:
@@ -98,24 +47,21 @@ class Youtube:
         self.error: float = wait_error_seconds
         self.max_results_ytsearch = max_results_ytsearch
         # Blacklist for things that go into metadata
-        blacklist: list[str] = [
-            " ENGLISH SUBS", "ENGLISH SUBS",
-            " YouTube", "youtube",
-            " (Official Video)", " (OfficialVideo)", " Official Video",
-            " official MV", "official MV",
-            "(MV)",
-            "【Lyric Video】 ", " 【Lyric Video】", "【Lyric Video】",
-            "[Vietsub + Lyrics] ", " [Vietsub + Lyrics]",
-            " Lyric Video", "Lyric Video",
-            " (Official Lyric Video)",
-            " Official Channel", "Official Channel", " / Official", " official",
-            " Channel", " - topic", " topic",
-            " (Lyric)", " (Lyrics)", " lyrics",
+        blacklist_title: list[str] = [
+            "official channel",
+            "official MV", "official lyric video", "official video",
+            "vietsub + lyrics", "lyric video", "lyrics", "lyric",
+            "english subs", "subtitles"
+            "youtube",
             #" records"
-            ]
+        ]
+        blacklist_artist: list[str] = [
+            "channel", "topic",
+            "official channel", "youtube",
+        ]
         self.blackmatch: list[str] = blacklist_searching.split(",: ") # Blacklist search, case-insensitive
-        self.title_blacklist = blacklist
-        self.artist_blacklist = blacklist
+        self.title_blacklist = blacklist_title
+        self.artist_blacklist = blacklist_artist
 
     def download_audio(self, file_path: str, url: str):
         """Download audio from YouTube video URL."""
@@ -176,7 +122,57 @@ class Youtube:
     def youtube_search(self, song_title: str, song_artist: str = "", song_duration_ms: int = 3000, tolerance_sec: int = 2, does_case_matter: bool = False):
         """Gets Youtube URL Song title and artist"""
         #title = song_title.lstrip(" - ", 0)
-        
+
+        def url_query(query):
+            ydl_opts = {
+                # 'cookies': cookies,
+                #'extractflat': True,
+                'quiet': True,
+                'skip_download': True,
+                #'match-filter': f'{blacklist}',
+                'noplaylist': True#,
+                #'max-downloads': max_downloads
+            }
+            with YoutubeDL(ydl_opts) as ydl:
+                tries: list[int] = [ 1, 2, 3 ] # TODO: Maybe another try version
+                for x in range(len(tries)):
+                    if x >= len(tries):
+                        log.warning("Search Failed fully for: (%s)", query)
+                        return []
+                    try:
+                        info = ydl.extract_info(f"{query}", download=False)
+                        return info.get("entries", []) if info else []
+                    except Exception as e:
+                        log.debug("Temp Search failed for (%s) : (%s) retry(%s/%s)",
+                                  query, str(e), x, len(tries))
+                        time.sleep(tries[x])
+
+        def soft_score(entry, trg_title:str, trg_artist: str = "", trg_duration_ms: int = 3000) -> float:
+            """Scores softer, ensure good instead of perfect but rare results"""
+            score: float = 0.0
+            entry_tmp = {
+                "title": f'{entry.get("title")}',
+                "duration_ms": int(entry.get("duration", 0) * 1000),
+                "artist": f'{entry.get("track_artist") or entry.get("uploader")}',
+                "views": int(entry.get("view_count", 0))
+            }
+            # Title & Artist Score
+            if does_case_matter:
+                score += fuzz.ratio(entry_tmp["title"], trg_title)/100 *15 # : Title Matching
+                score += fuzz.ratio(entry_tmp["artist"], trg_artist)/100 *35 # : Artist Matching
+            else:
+                score += fuzz.ratio(entry_tmp["title"].lower(), trg_title.lower())/100 *15 # : Title Matching
+                score += fuzz.ratio(entry_tmp["artist"].lower(), trg_artist.lower())/100 *35 # : Artist Matching
+
+            # View Score (logarithmic)
+            score += max(0, 3*math.log2( math.log10(entry_tmp["views"]) /1000 +1 ) ) # : 1 for >200, 3 for 1K / 6 for 10k / 9 for 100K / 12 for 1 Million
+
+            # Duration Score
+            if trg_duration_ms > 5*1000:
+                score += max(0, -math.pow( abs(entry_tmp["duration_ms"]-trg_duration_ms) /1000, 2) +15 ) # Duration Matching
+
+            return score
+
         # Variables
         log = self.logging
 
@@ -201,7 +197,7 @@ class Youtube:
                         "score": score,
                         "title": f"{remove_words(entry.get("title", ""), self.title_blacklist)}",
                         "artist": f'{remove_words(entry.get("track_artist") or entry.get("uploader"), self.artist_blacklist)}',
-                        "album": entry.get("album"),
+                        "album": f"{remove_words(entry.get("album", ""), self.title_blacklist)}",
                         "date": f"{date[0:4]}-{date[4:6]}-{date[6:8]}", # YYYY-MM-DD Format
                         "duration_ms": int( entry.get("duration", 0) * 1000 ),
                         "url": f"{entry.get("webpage_url", "")}",
