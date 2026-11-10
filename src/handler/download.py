@@ -12,7 +12,8 @@ def remove_words(input_string, word_blacklist) -> str:
     Removes all words from input_string that are in word_blacklist (case-insensitive).
     """
     # Create a pattern that matches any of the blacklist words case-insensitively
-    escaped_words = [re.escape(word) for word in word_blacklist]
+    #escaped_words = [re.escape(word) for word in word_blacklist]
+    escaped_words = sorted([re.escape(word) for word in word_blacklist], key=len, reverse=True)
 
     # Remove items
     pattern = r'(?:' + '|'.join(escaped_words) + r')'
@@ -49,9 +50,10 @@ class Youtube:
         # Blacklist for things that go into metadata
         blacklist_title: list[str] = [
             "official channel", "- topic", "- topics",
-            "official MV", "official lyric video", "official video",
-            "vietsub + lyrics", "lyric video", "- lyrics", "lyrics", "- lyric" "lyric",
-            "english subs", "- subtitles", "subtitles"
+            "Official Music Video", "official MV", "music video",
+            "official lyric video", "official video",
+            "vietsub + lyrics", "lyric video", "- lyrics", "lyrics", "- lyric", "lyric",
+            "english subs", "- subtitles", "subtitles",
             "youtube"
         ]
         blacklist_artist: list[str] = [
